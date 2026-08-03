@@ -1,0 +1,16 @@
+.venv312
+.test/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+data/raw/
+data/processed/
+
+outputs/checkpoints/
+outputs/predictions/
+
+.env
+.DS_Store
+*.pt
+outputs/
