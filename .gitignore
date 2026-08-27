@@ -1,16 +1,15 @@
-.venv312
-.test/
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
+.venv/
+# Datasets and generated artifacts
+data/raw/*
+data/processed/*
+outputs/*
 
-data/raw/
-data/processed/
-
-outputs/checkpoints/
-outputs/predictions/
-
+# Keep empty directories
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!outputs/.gitkeep
 .env
-.DS_Store
-*.pt
-outputs/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
