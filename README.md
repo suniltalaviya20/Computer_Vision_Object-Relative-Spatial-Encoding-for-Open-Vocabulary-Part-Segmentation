@@ -102,7 +102,8 @@ web/
 Start it with:
 
 ```bash
-python -m http.server 8000 --bind 127.0.0.1 --directory web
+WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
+python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
 ```
 
 Open:
@@ -397,7 +398,8 @@ python scripts/export_demo_robustness.py
 9. Start or refresh the website:
 
 ```bash
-python -m http.server 8000 --bind 127.0.0.1 --directory web
+WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
+python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
 ```
 
 10. Hard refresh the browser if needed:
@@ -625,8 +627,10 @@ jupyter notebook notebooks/data_analysis.ipynb
 9. Run:
    python scripts/export_demo_robustness.py
 10. Run:
-    python -m http.server 8000 --bind 127.0.0.1 --directory web
-11. Open:
+```bash
+WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
+python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
+```11. Open:
     http://127.0.0.1:8000/
 ```
 
