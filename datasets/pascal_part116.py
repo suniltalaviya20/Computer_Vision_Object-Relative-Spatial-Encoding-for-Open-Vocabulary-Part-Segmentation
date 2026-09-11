@@ -185,7 +185,7 @@ class PascalPart116Dataset(Dataset):
                 f"image={image_shape}, "
                 f"objects="
                 f"{object_labels.shape}, "
-                f"parts="
+                f"parts=" 
                 f"{part_labels.shape}"
             )
 
@@ -344,3 +344,4 @@ class PascalPart116Dataset(Dataset):
             )
 
         return sample
+    

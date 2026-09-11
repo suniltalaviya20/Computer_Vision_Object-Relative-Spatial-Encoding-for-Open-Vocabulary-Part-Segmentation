@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Object-Relative Part Segmentation
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="styles.css?v=5"
+  >
+</head>
+
+
+<body>
+
+  <!-- =====================================================
+       HEADER
+       ===================================================== -->
+
+  <header class="site-header">
+
+    <div class="brand">
+
+      <div
+        class="brand-mark"
+        aria-hidden="true"
+      >
+        <i></i>
+        <i></i>
+        <i></i>
+        <i></i>
+      </div>
+
+      <div>
+        <strong>
+          Object-Relative Part Segmentation
+        </strong>
+
+        <span class="brand-subtitle">
+          Text-conditioned segmentation with spatial geometry
+        </span>
+      </div>
+
+    </div>
+
+
+    <div
+      class="status-badge"
+      id="status-badge"
+    >
+      <span></span>
+
+      <strong id="status-text">
+        Loading
+      </strong>
+    </div>
+
+  </header>
+
+
+
+  <!-- =====================================================
+       MAIN
+       ===================================================== -->
+
+  <main class="workspace">
+
+
+    <!-- ===================================================
+         INTRODUCTION
+         =================================================== -->
+
+    <section class="introduction">
+
+      <div>
+
+        <p class="eyebrow">
+          INTERACTIVE RESEARCH DEMO
+        </p>
+
+        <h1>
+          Inspect part predictions under
+          object-relative spatial conditioning
+        </h1>
+
+        <p class="lead">
+          Select an object, part, robustness condition,
+          model and visualization.
+        </p>
+
+      </div>
+
+
+      <button
+        class="button secondary compare-button"
+        id="compare-button"
+        type="button"
+        aria-pressed="false"
+      >
+        Compare models
+      </button>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         SETUP NOTICE
+         =================================================== -->
+
+    <div
+      class="setup-notice"
+      id="setup-notice"
+      hidden
+    >
+
+      <span class="notice-dot"></span>
+
+      <div>
+        <strong>
+          Demo data could not be loaded.
+        </strong>
+
+        Run the site through a local web server
+        rather than opening index.html directly.
+      </div>
+
+    </div>
+
+
+
+    <!-- ===================================================
+         SAMPLE CONTROLS
+         =================================================== -->
+
+    <section
+      class="selection-bar"
+      aria-label="Example selection"
+    >
+
+
+      <!-- Object -->
+
+      <label class="field">
+
+        <span>
+          Object
+        </span>
+
+        <select
+          id="object-select"
+          disabled
+        >
+          <option>
+            Loading...
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- Part -->
+
+      <label class="field">
+
+        <span>
+          Part
+        </span>
+
+        <select
+          id="part-select"
+          disabled
+        >
+          <option>
+            Select object first
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- =================================================
+           ROBUSTNESS CONDITION
+           ================================================= -->
+
+      <label class="field">
+
+        <span>
+          Condition
+        </span>
+
+        <select
+          id="condition-select"
+          disabled
+        >
+          <option value="clean">
+            Clean
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- Another example -->
+
+      <button
+        class="button secondary random-button"
+        id="random-button"
+        type="button"
+        disabled
+      >
+        Another example
+      </button>
+
+
+
+      <!-- Current example -->
+
+      <div class="example-summary">
+
+        <span class="caption">
+          CURRENT EXAMPLE
+        </span>
+
+        <strong id="example-name">
+          —
+        </strong>
+
+        <span id="example-id">
+          No sample selected
+        </span>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         PERMANENT GROUND TRUTH
+         =================================================== -->
+
+    <section
+      class="ground-truth-section"
+      aria-labelledby="ground-truth-title"
+    >
+
+      <div class="ground-truth-heading">
+
+        <div>
+
+          <span class="section-label">
+            REFERENCE
+          </span>
+
+          <h2 id="ground-truth-title">
+            Ground truth
+          </h2>
+
+        </div>
+
+
+        <div class="ground-truth-meta">
+
+          <span class="caption">
+            SELECTED PART
+          </span>
+
+          <strong id="gt-preview-label">
+            No part selected
+          </strong>
+
+          <span id="gt-condition-label">
+            Dataset annotation
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="ground-truth-stage">
+
+        <img
+          id="gt-preview-image"
+          class="gt-preview-image"
+          alt="Ground-truth part overlay"
+          hidden
+        >
+
+        <div
+          class="gt-preview-empty"
+          id="gt-preview-empty"
+        >
+          Ground truth will appear here
+        </div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         VIEWER HEADING
+         =================================================== -->
+
+    <section class="viewer-heading">
+
+      <div>
+
+        <span class="section-label">
+          INSPECT MODEL
+        </span>
+
+        <span
+          class="sample-tag"
+          id="viewer-condition-tag"
+        >
+          Clean
+        </span>
+
+      </div>
+
+
+      <label
+        class="link-views"
+        id="link-views-container"
+        hidden
+      >
+
+        <input
+          id="link-views"
+          type="checkbox"
+          checked
+        >
+
+        Link views
+
+      </label>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         MODEL VIEWERS
+         =================================================== -->
+
+    <section
+      class="viewer-grid"
+      id="viewer-grid"
+    >
+
+
+      <!-- =================================================
+           MODEL A
+           ================================================= -->
+
+      <article
+        class="viewer-card"
+        id="viewer-a"
+      >
+
+
+        <div class="card-controls">
+
+
+          <label class="field model-field">
+
+            <span>
+              Model
+            </span>
+
+            <select
+              class="model-select"
+              data-viewer="a"
+              disabled
+            >
+              <option>
+                Loading...
+              </option>
+            </select>
+
+          </label>
+
+
+
+          <label class="field view-field">
+
+            <span>
+              View
+            </span>
+
+            <select
+              class="view-select"
+              data-viewer="a"
+              disabled
+            >
+              <option>
+                Prediction overlay
+              </option>
+            </select>
+
+          </label>
+
+        </div>
+
+
+
+        <p
+          class="model-description"
+          data-description="a"
+        >
+          Select a sample to inspect the model.
+        </p>
+
+
+
+        <div class="image-stage">
+
+
+          <img
+            class="stage-image"
+            data-image="a"
+            alt="Model visualization"
+            hidden
+          >
+
+
+          <div
+            class="empty-state"
+            data-empty="a"
+          >
+
+            <div class="empty-icon">
+              ◫
+            </div>
+
+            <p class="empty-title">
+              Select an example
+            </p>
+
+            <p class="empty-description">
+              Choose an object and part to inspect
+              a segmentation result.
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="image-caption">
+
+          <span data-caption="a">
+            —
+          </span>
+
+          <span
+            class="coordinate-space"
+            data-space="a"
+          >
+            —
+          </span>
+
+        </div>
+
+
+
+        <!-- Metrics -->
+
+        <div class="metric-strip">
+
+
+          <div class="metric">
+
+            <span>
+              IoU ↑
+            </span>
+
+            <strong data-iou="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Dice ↑
+            </span>
+
+            <strong data-dice="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Leakage ↓
+            </span>
+
+            <strong data-leakage="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric-context">
+
+            <div data-query="a">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="a"
+            >
+              —
+            </div>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+      <!-- =================================================
+           MODEL B
+           ================================================= -->
+
+      <article
+        class="viewer-card"
+        id="viewer-b"
+        hidden
+      >
+
+
+        <div class="card-controls">
+
+
+          <label class="field model-field">
+
+            <span>
+              Model
+            </span>
+
+            <select
+              class="model-select"
+              data-viewer="b"
+              disabled
+            >
+              <option>
+                Loading...
+              </option>
+            </select>
+
+          </label>
+
+
+
+          <label class="field view-field">
+
+            <span>
+              View
+            </span>
+
+            <select
+              class="view-select"
+              data-viewer="b"
+              disabled
+            >
+              <option>
+                Prediction overlay
+              </option>
+            </select>
+
+          </label>
+
+        </div>
+
+
+
+        <p
+          class="model-description"
+          data-description="b"
+        >
+          Select a sample to inspect the model.
+        </p>
+
+
+
+        <div class="image-stage">
+
+
+          <img
+            class="stage-image"
+            data-image="b"
+            alt="Model comparison visualization"
+            hidden
+          >
+
+
+          <div
+            class="empty-state"
+            data-empty="b"
+          >
+
+            <div class="empty-icon">
+              ◫
+            </div>
+
+            <p class="empty-title">
+              Select an example
+            </p>
+
+            <p class="empty-description">
+              Choose an object and part to inspect
+              a segmentation result.
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="image-caption">
+
+          <span data-caption="b">
+            —
+          </span>
+
+          <span
+            class="coordinate-space"
+            data-space="b"
+          >
+            —
+          </span>
+
+        </div>
+
+
+
+        <!-- Metrics -->
+
+        <div class="metric-strip">
+
+
+          <div class="metric">
+
+            <span>
+              IoU ↑
+            </span>
+
+            <strong data-iou="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Dice ↑
+            </span>
+
+            <strong data-dice="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Leakage ↓
+            </span>
+
+            <strong data-leakage="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric-context">
+
+            <div data-query="b">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="b"
+            >
+              —
+            </div>
+
+          </div>
+
+        </div>
+
+      </article>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         OPTIONAL COMPARISON SUMMARY
+         =================================================== -->
+
+    <div
+      class="comparison-summary"
+      id="comparison-summary"
+      hidden
+    >
+      Both panels use the same image, query and robustness
+      condition.
+    </div>
+
+
+
+    <!-- ===================================================
+         NOTE
+         =================================================== -->
+
+    <div class="quiet-note">
+
+      <span class="small-info">
+        i
+      </span>
+
+      <p>
+        U and V are coordinates relative to the selected
+        parent object. D is 2D distance to the parent-mask
+        boundary, not camera depth. Robustness conditions
+        rerun the model after modifying the input or supplied
+        parent mask.
+      </p>
+
+    </div>
+
+
+
+    <!-- ===================================================
+         FOOTER
+         =================================================== -->
+
+    <footer class="workspace-footer">
+
+      <span>
+        Text-conditioned object-relative part segmentation
+      </span>
+
+      <span>
+        Pascal-Part-116
+      </span>
+
+    </footer>
+
+  </main>
+
+
+
+  <!-- =====================================================
+       SCRIPT
+       ===================================================== -->
+
+  <script
+    src="app.js?v=5"
+    defer
+  ></script>
+
+</body>
+
+</html>
