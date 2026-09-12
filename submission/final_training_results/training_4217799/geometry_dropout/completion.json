@@ -1,0 +1,9 @@
+{
+  "experiment": "geometry_dropout",
+  "status": "trained",
+  "stop_reason": "early_stopping_validation_iou_plateau",
+  "epochs_completed": 20,
+  "selected_epoch": 15,
+  "best_validation_iou": 0.2870662058522762,
+  "checkpoint": "trained_points/training_4217799/geometry_dropout/best.pt"
+}

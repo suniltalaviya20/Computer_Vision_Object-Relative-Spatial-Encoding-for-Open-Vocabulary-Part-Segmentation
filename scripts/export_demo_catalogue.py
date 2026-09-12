@@ -58,9 +58,7 @@ RANDOM_SEED = 42
 # ============================================================
 
 WEB_ROOT = (
-    Path.home()
-    / "cv_project"
-    / "Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation"
+    PROJECT_ROOT
     / "web"
 )
 
@@ -775,9 +773,7 @@ def export_sample(
         if "u" in geometry:
 
             save_gray(
-                sample[
-                    "crop_relative_u"
-                ],
+                result["u"],
                 model_dir
                 / "u.png",
             )
@@ -793,7 +789,7 @@ def export_sample(
                     f"u.png",
 
                 "space":
-                    "crop",
+                    "full_image",
 
                 "description":
                     "Horizontal position "
@@ -808,9 +804,7 @@ def export_sample(
         if "v" in geometry:
 
             save_gray(
-                sample[
-                    "crop_relative_v"
-                ],
+                result["v"],
                 model_dir
                 / "v.png",
             )
@@ -826,7 +820,7 @@ def export_sample(
                     f"v.png",
 
                 "space":
-                    "crop",
+                    "full_image",
 
                 "description":
                     "Vertical position "
@@ -841,9 +835,7 @@ def export_sample(
         if "d" in geometry:
 
             save_gray(
-                sample[
-                    "crop_boundary_d"
-                ],
+                result["d"],
                 model_dir
                 / "d.png",
             )
@@ -859,7 +851,7 @@ def export_sample(
                     f"d.png",
 
                 "space":
-                    "crop",
+                    "full_image",
 
                 "description":
                     "2D distance to the "

@@ -1,637 +1,157 @@
-# Computer Vision: Object-Relative Spatial Encoding for Open-Vocabulary Part Segmentation
+# Object-Relative Open-Vocabulary Part Segmentation
 
-This project studies text-conditioned object-part segmentation using RGB appearance, a parent-object mask, a text query, and optional object-relative spatial encoding.
+This project predicts an object-part mask from:
 
-Given:
-- an RGB image,
-- a parent-object mask,
-- a text query such as `head`, `wheel`, or `ear`,
+- an RGB image;
+- a binary parent-object mask;
+- a text query such as `wheel`, `head`, or `wing`.
 
-the model predicts a binary mask for the requested part.
+The final study uses frozen DINOv2 ViT-S/14 visual features, frozen OpenCLIP
+ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 
-The project uses Pascal-Part-116. Dataset files and trained model checkpoints are not stored directly in Git.
+## Current project structure
 
----
-
-## 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation
+```text
+.
+├── dashboard/utils/             # model registry and demo inference
+├── data/                        # Pascal-Part-116 (not committed)
+├── datasets/                    # dataset and robustness loaders
+├── final_training/              # exact final-study architecture and inference
+├── models/final_study/          # active deployment checkpoints and registry
+├── submission/
+│   ├── final_training_notebooks/ # reproducible training notebooks
+│   ├── final_training_results/   # metrics, plots, logs, executed notebooks
+│   └── trained_points/           # original training/resume artifacts
+├── scripts/                     # data, validation, and web export commands
+├── src/                         # earlier model and geometry components
+└── web/                         # static browser demo
 ```
 
----
+The professor submission folder is retained as the complete training record.
+The main runtime copies only the smaller `ui_model.pt` artifacts into
+`models/final_study/`; `best.pt`, `last.pt`, logs, and reports are not duplicated.
 
-## 2. Python Environment
+## Setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
----
-
-# Dataset
-
-## 3. Download Pascal-Part-116
-
-```bash
-python scripts/download_dataset.py
-```
-
-The raw dataset should be located at:
+The first inference may download DINOv2 and OpenCLIP. Later runs reuse their
+local caches. If fully offline, provide the training-compatible files at:
 
 ```text
-data/
-└── raw/
-    └── PascalPart116/
+dinov2/
+models/pretrained/dinov2_vits14_pretrain.pth
+models/pretrained/open_clip/ViT-B-32.pt
 ```
 
-The raw dataset is ignored by Git.
+## Final trained models
 
-## 4. Prepare the Dataset
+The active run is `training_4217799`:
+
+| Model | Selected epoch | Validation IoU |
+|---|---:|---:|
+| Object-mask baseline | 14 | 0.2814 |
+| Fixed UVD | 12 | 0.2855 |
+| Query-gated UVD | 12 | 0.2837 |
+| Rotation-consistent UVD | 21 | **0.2981** |
+| Geometry-dropout UVD | 15 | 0.2871 |
+
+Rotation-consistent UVD is the selected model. Selection used validation IoU;
+test metrics were not used for checkpoint selection.
+
+Validate the copied deployment artifacts without loading the large encoders:
 
 ```bash
+source .venv/bin/activate
+python scripts/verify_final_models.py
+```
+
+## Dataset
+
+Download and prepare Pascal-Part-116:
+
+```bash
+source .venv/bin/activate
+python scripts/download_dataset.py
 python scripts/prepare_dataset.py
 ```
 
-Generated files are stored under:
+Expected locations:
 
 ```text
-data/
-├── processed/
-└── splits/
+data/raw/PascalPart116/
+data/processed/
+data/splits/
 ```
 
-To force regeneration:
+## Run the static website
+
+The website displays predictions exported in advance; selecting an example does
+not retrain or run a model.
 
 ```bash
-python scripts/prepare_dataset.py --force
+python3 -m http.server 8000 --bind 127.0.0.1 --directory web
 ```
 
-The project uses:
+Open <http://127.0.0.1:8000/> and stop the server with `Ctrl+C`.
 
-```text
-train
-validation
-test
-train_seen
-validation_seen
-test_seen
-test_unseen
-```
+## Rebuild website predictions
 
----
+The registry at `dashboard/utils/demo_registry.py` is the single source of truth
+for the five model names and checkpoint paths.
 
-# Run the Existing Static Web Demo
-
-The repository contains a pre-exported static demo in:
-
-```text
-web/
-├── index.html
-├── styles.css
-├── app.js
-├── data/
-│   └── catalogue.json
-└── assets/
-    └── examples/
-```
-
-Start it with:
+Quickly test real inference first:
 
 ```bash
-WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
-python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/
-```
-
-If `web/data/catalogue.json` and `web/assets/` are already present, the dataset and model checkpoints are not required just to view the website.
-
----
-
-# Model Checkpoints
-
-## 5. Where Checkpoints Go
-
-Model checkpoints live under:
-
-```text
-outputs/object_zoom/
-```
-
-Example:
-
-```text
-outputs/
-└── object_zoom/
-    ├── alignment_mask/
-    │   └── best.pt
-    ├── alignment_fixed_uvd/
-    │   └── best.pt
-    ├── alignment_query_gated_uvd/
-    │   └── best.pt
-    └── alignment_relative_uv/
-        └── best.pt
-```
-
-The `outputs/` directory is ignored by Git, so `.pt` files must be copied or downloaded separately.
-
----
-
-# Using Your Own `.pt` Model
-
-This is the recommended workflow for testing a colleague's own checkpoint.
-
-## 6. Put the Checkpoint in Its Own Folder
-
-Do not overwrite an existing checkpoint if possible.
-
-Use a unique path such as:
-
-```text
-outputs/object_zoom/my_fixed_uvd_v1/best.pt
-```
-
-A unique checkpoint path is important because exported results are associated with the registered checkpoint path. Reusing the exact old path can make old exported results look current.
-
----
-
-## 7. Register the Model
-
-Open:
-
-```text
-dashboard/utils/demo_registry.py
-```
-
-This file is the source of truth for the demo models.
-
-Add a new registry entry, or replace an existing entry if you intentionally want your checkpoint to replace one of the current demo models.
-
-Example:
-
-```python
-{
-    "id": "my_fixed_uvd_v1",
-    "label": "My Fixed UVD v1",
-
-    # Must match how this checkpoint was trained.
-    "mode": "alignment_fixed_uvd",
-
-    "checkpoint": (
-        PROJECT_ROOT
-        / "outputs"
-        / "object_zoom"
-        / "my_fixed_uvd_v1"
-        / "best.pt"
-    ),
-
-    "geometry": ["u", "v", "d"],
-    "gated": False,
-    "comparison_group": "final_object_centric",
-    "supports_live": True,
-}
-```
-
-Use a unique `id`.
-
-The `id` is used in:
-- `catalogue.json`,
-- exported asset folders,
-- frontend model selection,
-- robustness results.
-
----
-
-## 8. Match the Registry to the Model Type
-
-### Parent-mask / crop + alignment model
-
-```python
-"mode": "alignment_mask",
-"geometry": [],
-"gated": False,
-```
-
-### Relative U/V model
-
-```python
-"mode": "alignment_relative_uv",
-"geometry": ["u", "v"],
-"gated": False,
-```
-
-### Fixed U/V/D model
-
-```python
-"mode": "alignment_fixed_uvd",
-"geometry": ["u", "v", "d"],
-"gated": False,
-```
-
-### Query-gated U/V/D model
-
-```python
-"mode": "alignment_query_gated_uvd",
-"geometry": ["u", "v", "d"],
-"gated": True,
-```
-
-`D` is the 2D distance to the parent-mask boundary. It is not depth.
-
----
-
-## 9. Architecture Compatibility
-
-Changing only the `.pt` path is enough only when the checkpoint uses an architecture already supported by this project.
-
-The loader is:
-
-```text
-dashboard/utils/models.py
-```
-
-The model implementations are under:
-
-```text
-src/
-```
-
-If your checkpoint was trained with one of the existing supported modes, register the correct mode and path.
-
-If your checkpoint uses:
-- a new architecture,
-- a different decoder,
-- different tensor shapes,
-- a new geometry representation,
-- a different set of saved state-dict keys,
-
-then `dashboard/utils/models.py` and/or the relevant code in `src/` must also be updated before the checkpoint can load.
-
-A `.pt` file is not automatically compatible just because it exists.
-
----
-
-# Rebuild the Demo After Changing Models
-
-## 10. Test the Registered Models
-
-Run:
-
-```bash
+source .venv/bin/activate
 python scripts/test_demo_robustness.py
 ```
 
-The script should finish with:
-
-```text
-ROBUSTNESS TEST COMPLETE
-```
-
-If loading fails, fix the registry/model configuration before exporting website data.
-
----
-
-## 11. Regenerate the Clean Demo Catalogue
-
-Whenever the registered models change, run:
+Then export the clean catalogue and six robustness conditions:
 
 ```bash
 python scripts/export_demo_catalogue.py
+python scripts/export_demo_robustness.py
 ```
 
-This regenerates the clean examples and synchronizes:
+The export creates the 111-example static demo under:
 
 ```text
 web/data/catalogue.json
-```
-
-with the current registry.
-
----
-
-## 12. Regenerate Robustness Results
-
-After the clean catalogue is regenerated:
-
-```bash
-python scripts/export_demo_robustness.py
-```
-
-This generates:
-
-```text
-Rotate 15°
-Rotate 45°
-Rotate 90°
-Erode parent mask
-Dilate parent mask
-Shift parent mask
-```
-
-The robustness exporter contains:
-
-```python
-ROBUSTNESS_PIPELINE_VERSION = 2
-```
-
-Increase that version only when the robustness preprocessing/export pipeline changes.
-
-For a new model checkpoint, prefer a new checkpoint path and a new model `id`.
-
----
-
-# Replacing an Existing Demo Model
-
-To make your model take the place of an existing one:
-
-1. Put your checkpoint at a unique path, for example:
-
-```text
-outputs/object_zoom/my_model_v1/best.pt
-```
-
-2. Open:
-
-```text
-dashboard/utils/demo_registry.py
-```
-
-3. Replace the registry entry you no longer want.
-
-4. Give your model a unique `id`.
-
-5. Set the correct:
-
-```text
-mode
-geometry
-gated
-checkpoint
-```
-
-6. Test:
-
-```bash
-python scripts/test_demo_robustness.py
-```
-
-7. Re-export clean results:
-
-```bash
-python scripts/export_demo_catalogue.py
-```
-
-8. Re-export robustness results:
-
-```bash
-python scripts/export_demo_robustness.py
-```
-
-9. Start or refresh the website:
-
-```bash
-WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
-python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
-```
-
-10. Hard refresh the browser if needed:
-
-```text
-Ctrl + Shift + R
-```
-
-The frontend reads the model list from the exported catalogue, so model names should not need to be hard-coded in `web/app.js`.
-
----
-
-# Adding a New Model Without Removing Existing Models
-
-1. Add a new unique registry entry in:
-
-```text
-dashboard/utils/demo_registry.py
-```
-
-2. Put the checkpoint at:
-
-```text
-outputs/object_zoom/<your-model-folder>/best.pt
-```
-
-3. Run:
-
-```bash
-python scripts/test_demo_robustness.py
-```
-
-4. Re-export:
-
-```bash
-python scripts/export_demo_catalogue.py
-python scripts/export_demo_robustness.py
-```
-
-5. Refresh the website.
-
-The model should then appear as another option if the current frontend/export pipeline supports the number of registered models.
-
----
-
-# Demo Registry
-
-Treat:
-
-```text
-dashboard/utils/demo_registry.py
-```
-
-as the single source of truth for:
-- model ID,
-- display label,
-- inference mode,
-- checkpoint path,
-- geometry inputs,
-- whether the model is gated,
-- whether it is available to the demo.
-
-Avoid hard-coding checkpoint paths separately in exporters or frontend code.
-
----
-
-# Important Demo Files
-
-```text
-dashboard/utils/demo_registry.py
-```
-
-Defines registered demo models.
-
-```text
-dashboard/utils/models.py
-```
-
-Loads datasets, DINOv2, CLIP, checkpoints, and runs predictions.
-
-```text
-datasets/object_centric_dataset.py
-```
-
-Builds normal object-centric crops and geometry.
-
-```text
-datasets/object_centric_robustness_dataset.py
-```
-
-Applies robustness perturbations and rebuilds object-centric inputs.
-
-```text
-src/
-```
-
-Contains model, geometry, crop, projection, preprocessing, robustness, DINOv2, and CLIP code.
-
-```text
-scripts/export_demo_catalogue.py
-```
-
-Exports clean demo examples.
-
-```text
-scripts/export_demo_robustness.py
-```
-
-Exports robustness examples.
-
-```text
-scripts/test_demo_robustness.py
-```
-
-Runs a quick real inference check before a large export.
-
----
-
-# Demo Data Flow
-
-```text
-Pascal-Part-116
-      ↓
-prepared split
-      ↓
-object-centric dataset
-      ↓
-RGB crop + parent mask
-      ↓
-relative U / V / D when required
-      ↓
-DINOv2 visual encoder
-      +
-CLIP text encoder
-      ↓
-registered segmentation model
-      ↓
-crop prediction
-      ↓
-projection to full image
-      ↓
-IoU / Dice / leakage
-      ↓
-web/data/catalogue.json
-+
 web/assets/examples/
 ```
 
-For robustness conditions, the raw image and/or parent mask is perturbed before the normal object-centric crop and geometry are recomputed.
+## Direct inference
 
----
+For a new image, supply a `uint8` RGB tensor shaped `[3, H, W]`, a binary
+parent mask shaped `[H, W]`, and a text query:
 
-# Inspect the Demo Dataset
+```python
+from final_training.inference import load_predictor
 
-```bash
-python scripts/inspect_demo_dataset.py
+predictor = load_predictor(
+    "models/final_study/best_model.pt"
+)
+probability = predictor.predict(rgb_image, parent_mask, "wheel")
+prediction = probability >= 0.5
 ```
 
----
+This is inference, not training. The parent-object mask is required because U,
+V, and D are computed relative to that mask.
 
-# Original Dataset Inspection
+## Reproducing training
 
-```bash
-python scripts/inspect_dataset.py --split train
-```
-
----
-
-# Dataset Analysis
-
-```bash
-jupyter notebook notebooks/data_analysis.ipynb
-```
-
----
-
-# Main Project Structure
+The full GPU training workflow remains in:
 
 ```text
-.
-├── dashboard/
-│   └── utils/
-│       ├── demo_registry.py
-│       └── models.py
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── splits/
-├── datasets/
-├── notebooks/
-├── outputs/
-│   └── object_zoom/
-│       └── <model-folder>/
-│           └── best.pt
-├── scripts/
-├── src/
-├── web/
-│   ├── index.html
-│   ├── styles.css
-│   ├── app.js
-│   ├── data/
-│   │   └── catalogue.json
-│   └── assets/
-├── README.md
-└── requirements.txt
+submission/
 ```
 
----
-
-# Quick Workflow for a Colleague's Model
-
-```text
-1. Clone the repository
-2. Install requirements
-3. Download and prepare Pascal-Part-116
-4. Put the checkpoint at:
-   outputs/object_zoom/<unique-model-name>/best.pt
-5. Add the model to:
-   dashboard/utils/demo_registry.py
-6. Make sure mode / geometry / gated match the checkpoint
-7. Run:
-   python scripts/test_demo_robustness.py
-8. Run:
-   python scripts/export_demo_catalogue.py
-9. Run:
-   python scripts/export_demo_robustness.py
-10. Run:
-```bash
-WEB_DIR="$HOME/cv_project/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation/web"
-python -m http.server 8000 --bind 127.0.0.1 --directory "$WEB_DIR"
-```11. Open:
-    http://127.0.0.1:8000/
-```
-
-If the checkpoint uses a new architecture instead of one of the existing supported modes, update the Python model-loading/model-definition code before steps 7-9.
+Its notebooks, FAU Slurm script, numerical results, plots, completion markers,
+and resume checkpoints are preserved unchanged. They are not required merely to
+view the static website or use a deployment checkpoint.

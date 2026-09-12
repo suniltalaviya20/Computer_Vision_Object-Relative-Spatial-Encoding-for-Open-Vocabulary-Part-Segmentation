@@ -839,6 +839,10 @@ function chooseAnotherExample() {
 
   render();
 
+  showToast(
+    "Loaded another example"
+  );
+
 }
 
 
@@ -1944,6 +1948,8 @@ function render() {
 
   }
 
+  refreshEnhancedUI();
+
 }
 
 
@@ -2112,6 +2118,12 @@ function toggleCompare() {
 
 
   render();
+
+  showToast(
+    state.comparing
+      ? "Comparison mode enabled"
+      : "Comparison mode closed"
+  );
 
 }
 
@@ -2366,6 +2378,14 @@ async function loadCatalogue() {
 
     render();
 
+    document.body.classList.remove(
+      "is-loading"
+    );
+
+    showToast(
+      "Research demo ready"
+    );
+
   }
 
   catch (
@@ -2385,6 +2405,11 @@ async function loadCatalogue() {
     $("#setup-notice")
       .hidden =
         false;
+
+
+    document.body.classList.remove(
+      "is-loading"
+    );
 
   }
 
@@ -2469,4 +2494,413 @@ for (
 // START
 // ============================================================
 
+let toastTimer = null;
+
+
+function setupEnhancedExperience() {
+
+  document.body.classList.add("is-loading");
+
+  const introContent = $(".introduction > div");
+
+  if (introContent && !$("#demo-stats")) {
+
+    const stats = document.createElement("div");
+
+    stats.id = "demo-stats";
+    stats.className = "demo-stats";
+    stats.setAttribute("aria-label", "Demo catalogue summary");
+    stats.innerHTML = `
+      <span><strong data-stat="samples">—</strong> examples</span>
+      <span><strong data-stat="models">—</strong> models</span>
+      <span><strong data-stat="conditions">—</strong> conditions</span>
+    `;
+
+    introContent.appendChild(stats);
+
+  }
+
+  const toast = document.createElement("div");
+
+  toast.id = "demo-toast";
+  toast.className = "demo-toast";
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  document.body.appendChild(toast);
+
+  const lightbox = document.createElement("div");
+
+  lightbox.id = "image-lightbox";
+  lightbox.className = "image-lightbox";
+  lightbox.hidden = true;
+  lightbox.innerHTML = `
+    <button
+      class="lightbox-close"
+      type="button"
+      aria-label="Close expanded image"
+    >×</button>
+    <div class="lightbox-content">
+      <div class="lightbox-gallery"></div>
+      <p></p>
+    </div>
+  `;
+
+  document.body.appendChild(lightbox);
+
+  lightbox.addEventListener("click", (event) => {
+
+    if (
+      event.target === lightbox
+      || event.target.closest(".lightbox-close")
+    ) {
+      closeLightbox();
+    }
+
+  });
+
+  document.addEventListener("click", handleEnhancedClick);
+  document.addEventListener("keydown", handleKeyboardShortcuts);
+
+  addMetricHelp();
+  addZoomControls();
+
+}
+
+
+function refreshEnhancedUI() {
+
+  const values = {
+    samples: state.samples.length,
+    models: state.models.length,
+    conditions: state.robustnessConditions.length,
+  };
+
+  for (const [name, value] of Object.entries(values)) {
+
+    const element = $(
+      `[data-stat="${name}"]`
+    );
+
+    if (element) {
+      element.textContent = value || "—";
+    }
+
+  }
+
+  const sampleId = $("#example-id");
+
+  if (sampleId) {
+
+    sampleId.classList.toggle(
+      "is-copyable",
+      Boolean(state.sample)
+    );
+
+    sampleId.tabIndex = state.sample ? 0 : -1;
+    sampleId.setAttribute(
+      "role",
+      state.sample ? "button" : "status"
+    );
+    sampleId.title = state.sample
+      ? "Click to copy sample ID"
+      : "";
+
+  }
+
+  document.title = state.sample
+    ? `${human(state.sample.object)} / ${human(state.sample.part)} · Part Segmentation`
+    : "Object-Relative Part Segmentation";
+
+  for (const button of $$(".zoom-button")) {
+
+    const stage = button.closest(
+      ".image-stage, .ground-truth-stage"
+    );
+
+    const image = stage?.querySelector(
+      ".stage-image:not([hidden]), .gt-preview-image:not([hidden])"
+    );
+
+    button.hidden = !image;
+
+  }
+
+}
+
+
+function addMetricHelp() {
+
+  const help = [
+    ["[data-iou]", "Intersection over Union: higher is better."],
+    ["[data-dice]", "Dice overlap score: higher is better."],
+    ["[data-leakage]", "Prediction outside the parent object: lower is better."],
+  ];
+
+  for (const [selector, message] of help) {
+
+    for (const value of $$(selector)) {
+
+      const metric = value.closest(".metric");
+
+      if (metric) {
+        metric.title = message;
+      }
+
+    }
+
+  }
+
+}
+
+
+function addZoomControls() {
+
+  const stages = [
+    $(".ground-truth-stage"),
+    ...$$(".image-stage"),
+  ].filter(Boolean);
+
+  for (const stage of stages) {
+
+    if (stage.querySelector(".zoom-button")) {
+      continue;
+    }
+
+    const button = document.createElement("button");
+
+    button.className = "zoom-button";
+    button.type = "button";
+    button.setAttribute("aria-label", "Expand image");
+    button.title = "Expand image";
+    button.innerHTML = `
+      <span aria-hidden="true">⛶</span>
+      <span>Expand</span>
+    `;
+
+    button.addEventListener("click", (event) => {
+
+      event.stopPropagation();
+
+      const image = stage.querySelector(
+        ".stage-image:not([hidden]), .gt-preview-image:not([hidden])"
+      );
+
+      if (image && image.src) {
+        openLightbox(image);
+      }
+      else {
+        showToast("No image available to expand");
+      }
+
+    });
+
+    stage.appendChild(button);
+
+  }
+
+}
+
+
+function handleEnhancedClick(event) {
+
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const image = event.target.closest(
+    ".stage-image, .gt-preview-image"
+  );
+
+  if (image && !image.hidden && image.src) {
+    openLightbox(image);
+    return;
+  }
+
+  if (event.target.closest("#example-id.is-copyable")) {
+    copySampleId();
+  }
+
+}
+
+
+function handleKeyboardShortcuts(event) {
+
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const tag = event.target.tagName;
+
+  if (
+    event.target.matches("#example-id.is-copyable")
+    && (
+      event.key === "Enter"
+      || event.key === " "
+    )
+  ) {
+    event.preventDefault();
+    copySampleId();
+    return;
+  }
+
+  if (
+    event.target.isContentEditable
+    || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(tag)
+  ) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeLightbox();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "c") {
+    toggleCompare();
+  }
+
+  if (
+    event.key.toLowerCase() === "r"
+    && !$("#random-button").disabled
+  ) {
+    chooseAnotherExample();
+  }
+
+}
+
+
+function openLightbox(sourceImage) {
+
+  const lightbox = $("#image-lightbox");
+  const gallery = lightbox.querySelector(".lightbox-gallery");
+  const caption = lightbox.querySelector("p");
+  const isViewerImage = Boolean(
+    sourceImage.closest(".viewer-card")
+  );
+
+  let images = [sourceImage];
+
+  if (
+    state.comparing
+    && isViewerImage
+  ) {
+
+    images = [
+      $("#viewer-a"),
+      $("#viewer-b"),
+    ]
+      .map((viewer) => viewer?.querySelector(
+        ".stage-image:not([hidden])"
+      ))
+      .filter((image) => image?.src);
+
+  }
+
+  gallery.innerHTML = "";
+  gallery.classList.toggle(
+    "is-comparing",
+    images.length > 1
+  );
+
+  for (const image of images) {
+
+    const figure = document.createElement("figure");
+    const expandedImage = document.createElement("img");
+    const label = document.createElement("figcaption");
+    const labelTitle = document.createElement("strong");
+    const labelDetail = document.createElement("span");
+    const viewer = image.closest(".viewer-card");
+    const modelSelect = viewer?.querySelector(".model-select");
+    const selectedModel = modelSelect?.selectedOptions?.[0]?.textContent;
+    const viewCaption = viewer
+      ?.querySelector(".image-caption span")
+      ?.textContent;
+
+    expandedImage.src = image.src;
+    expandedImage.alt = image.alt;
+    labelTitle.textContent = selectedModel || "Ground truth";
+    labelDetail.textContent = selectedModel
+      ? viewCaption || "Model visualization"
+      : "Dataset reference";
+
+    label.appendChild(labelTitle);
+    label.appendChild(labelDetail);
+    figure.appendChild(expandedImage);
+    figure.appendChild(label);
+    gallery.appendChild(figure);
+
+  }
+
+  caption.textContent = images.length > 1
+    ? "Side-by-side model comparison · both panels use the same sample and condition"
+    : sourceImage.closest(".ground-truth-section")
+      ? "Ground-truth reference"
+      : sourceImage.closest(".viewer-card")
+          ?.querySelector(".image-caption span")
+          ?.textContent
+        || "Model visualization";
+
+  lightbox.hidden = false;
+  document.body.classList.add("lightbox-open");
+  lightbox.querySelector(".lightbox-close").focus();
+
+}
+
+
+function closeLightbox() {
+
+  const lightbox = $("#image-lightbox");
+
+  if (!lightbox || lightbox.hidden) {
+    return;
+  }
+
+  lightbox.hidden = true;
+  document.body.classList.remove("lightbox-open");
+
+}
+
+
+async function copySampleId() {
+
+  if (!state.sample) {
+    return;
+  }
+
+  try {
+
+    await navigator.clipboard.writeText(state.sample.id);
+    showToast("Sample ID copied");
+
+  }
+  catch (error) {
+
+    console.warn("Clipboard unavailable", error);
+    showToast(state.sample.id);
+
+  }
+
+}
+
+
+function showToast(message) {
+
+  const toast = $("#demo-toast");
+
+  if (!toast) {
+    return;
+  }
+
+  window.clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+  }, 2200);
+
+}
+
+
+setupEnhancedExperience();
 loadCatalogue();

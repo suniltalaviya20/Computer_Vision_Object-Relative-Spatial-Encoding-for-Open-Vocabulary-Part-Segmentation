@@ -7,5 +7,9 @@ seaborn
 Pillow
 gdown
 torch
+torchvision
+open_clip_torch
 scipy
+tqdm
+streamlit
 pytest

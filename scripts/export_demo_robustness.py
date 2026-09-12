@@ -50,9 +50,7 @@ from datasets.object_centric_robustness_dataset import (
 # ============================================================
 
 WEB_ROOT = (
-    Path.home()
-    / "cv_project"
-    / "Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation"
+    PROJECT_ROOT
     / "web"
 )
 
@@ -921,9 +919,7 @@ def export_model_result(
     if "u" in geometry:
 
         save_gray(
-            sample[
-                "crop_relative_u"
-            ],
+            result["u"],
             model_dir
             / "u.png",
         )
@@ -937,7 +933,7 @@ def export_model_result(
                 + "u.png",
 
             "space":
-                "crop",
+                "full_image",
 
             "description":
                 "U coordinate after "
@@ -952,9 +948,7 @@ def export_model_result(
     if "v" in geometry:
 
         save_gray(
-            sample[
-                "crop_relative_v"
-            ],
+            result["v"],
             model_dir
             / "v.png",
         )
@@ -968,7 +962,7 @@ def export_model_result(
                 + "v.png",
 
             "space":
-                "crop",
+                "full_image",
 
             "description":
                 "V coordinate after "
@@ -983,9 +977,7 @@ def export_model_result(
     if "d" in geometry:
 
         save_gray(
-            sample[
-                "crop_boundary_d"
-            ],
+            result["d"],
             model_dir
             / "d.png",
         )
@@ -999,7 +991,7 @@ def export_model_result(
                 + "d.png",
 
             "space":
-                "crop",
+                "full_image",
 
             "description":
                 "Boundary-distance map after "

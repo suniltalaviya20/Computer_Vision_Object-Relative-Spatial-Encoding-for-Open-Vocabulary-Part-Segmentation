@@ -38,9 +38,7 @@ from dashboard.utils.demo_registry import (
 # ============================================================
 
 WEB_ROOT = (
-    Path.home()
-    / "cv_project"
-    / "Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation"
+    PROJECT_ROOT
     / "web"
 )
 
