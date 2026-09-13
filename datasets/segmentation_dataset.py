@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 
 from datasets import PascalPart116Dataset
 
-from src.preprocessing import (
+from src.features.preprocessing import (
     preprocess_segmentation_image,
     preprocess_mask,
 )

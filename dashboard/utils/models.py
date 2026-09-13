@@ -10,7 +10,7 @@ from torch.torch_version import TorchVersion
 from dashboard.utils.demo_registry import DEMO_MODELS
 from datasets import ObjectCentricDataset
 from final_training.training_core import PartSegmenter, TrainingConfig, relative_uvd
-from src.dino_features import get_device, load_dino_model
+from src.features.dino_features import get_device, load_dino_model
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

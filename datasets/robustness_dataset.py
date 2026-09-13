@@ -2,12 +2,12 @@ from torch.utils.data import Dataset
 
 from datasets import SegmentationDataset
 
-from src.geometry import (
+from src.geometry_comparison.geometry import (
     create_absolute_xy,
     create_relative_uv,
 )
 
-from src.robustness import (
+from src.robustness.robustness import (
     rotate_sample,
     corrupt_object_mask,
 )

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.uvd_model import (
+from src.query_gated_uvd.uvd_model import (
     QueryGeometryGate,
 )
 
