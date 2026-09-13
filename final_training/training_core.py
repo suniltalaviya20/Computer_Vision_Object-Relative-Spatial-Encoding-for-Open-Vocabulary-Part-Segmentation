@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import platform
@@ -35,6 +34,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from datasets import PascalPart116Dataset
+
+
+DINO_REPOSITORY = "facebookresearch/dinov2"
+DINO_MODEL = "dinov2_vits14"
+CLIP_MODEL = "ViT-B-32-quickgelu"
+CLIP_PRETRAINED = "openai"
 
 
 EXPERIMENTS = {
@@ -105,13 +110,13 @@ def run_id() -> str:
 
 
 def points_root() -> Path:
-    path = PROJECT_ROOT / "trained_points" / run_id()
+    path = PROJECT_ROOT / "training_results"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def results_root() -> Path:
-    path = PROJECT_ROOT / "final_training_results" / run_id()
+    path = PROJECT_ROOT / "training_results"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -122,14 +127,6 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
-
-def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(chunk_size), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1)
@@ -389,7 +386,7 @@ class TrainingRuntime:
         self.config = config
         seed_everything(config.seed)
         if not torch.cuda.is_available():
-            raise RuntimeError("Full training requires CUDA. Submit with scripts/submit_full_training_fau.slurm")
+            raise RuntimeError("Full training requires a CUDA-capable local GPU")
         self.device = torch.device("cuda:0")
         self.use_amp = True
         torch.backends.cudnn.benchmark = True
@@ -398,7 +395,7 @@ class TrainingRuntime:
         self.result_dir = results_root() / config.experiment
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.result_dir.mkdir(parents=True, exist_ok=True)
-        workers = min(12, max(1, int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count() or 1)) - 2))
+        workers = min(12, max(1, (os.cpu_count() or 1) - 2))
         self.datasets = {
             split: GeometryDataset(split, config.image_size)
             for split in ("train_seen", "validation_seen", "test_seen", "test_unseen")
@@ -430,18 +427,16 @@ class TrainingRuntime:
                 for split in ("validation_seen", "test_seen", "test_unseen")
             },
         }
-        self.dino_weights, self.clip_weights = self._verify_weights()
         self.dino = self._load_dino()
         clip_model, _, _ = open_clip.create_model_and_transforms(
-            "ViT-B-32-quickgelu", pretrained=None
+            CLIP_MODEL, pretrained=CLIP_PRETRAINED
         )
-        open_clip.load_checkpoint(clip_model, str(self.clip_weights), strict=True, weights_only=False)
         clip_model = clip_model.to(self.device).eval()
         for parameter in clip_model.parameters():
             parameter.requires_grad = False
         self.text = TextCache(
             clip_model,
-            open_clip.get_tokenizer("ViT-B-32"),
+            open_clip.get_tokenizer(CLIP_MODEL),
             self.device,
             self.use_amp,
         )
@@ -454,36 +449,17 @@ class TrainingRuntime:
         )
         self.text(queries)
 
-    def _verify_weights(self) -> tuple[Path, Path]:
-        pretrained = PROJECT_ROOT / "models" / "pretrained"
-        dino = pretrained / "dinov2_vits14_pretrain.pth"
-        clips = sorted((pretrained / "open_clip").glob("*.pt"))
-        if not dino.is_file() or len(clips) != 1:
-            raise FileNotFoundError("Expected local DINOv2 and exactly one OpenCLIP checkpoint")
-        manifest = pretrained / "SHA256SUMS.txt"
-        if manifest.is_file():
-            expected = {
-                filename.strip(): digest
-                for line in manifest.read_text().splitlines()
-                if line.strip()
-                for digest, filename in [line.split(maxsplit=1)]
-            }
-            for path in (dino, clips[0]):
-                relative = path.relative_to(pretrained).as_posix()
-                if relative not in expected or sha256_file(path) != expected[relative]:
-                    raise RuntimeError(f"Checksum verification failed: {relative}")
-        return dino, clips[0]
-
     def _load_dino(self) -> nn.Module:
-        repository = PROJECT_ROOT / "dinov2"
         stale = [name for name in sys.modules if name == "dinov2" or name.startswith("dinov2.")]
         for name in sorted(stale, reverse=True):
             del sys.modules[name]
-        model = torch.hub.load(str(repository), "dinov2_vits14", source="local", pretrained=False)
-        state = torch.load(self.dino_weights, map_location="cpu", weights_only=True)
-        state = state.get("model", state) if isinstance(state, dict) else state
-        state = {key.removeprefix("module."): value for key, value in state.items()}
-        model.load_state_dict(state, strict=True)
+        model = torch.hub.load(
+            DINO_REPOSITORY,
+            DINO_MODEL,
+            pretrained=True,
+            trust_repo=True,
+            force_reload=False,
+        )
         model = model.to(self.device).eval()
         for parameter in model.parameters():
             parameter.requires_grad = False
@@ -579,10 +555,11 @@ class TrainingRuntime:
             "cudnn_benchmark": torch.backends.cudnn.benchmark,
             "python": platform.python_version(),
             "torch": torch.__version__,
-            "dino_checkpoint": str(self.dino_weights.relative_to(PROJECT_ROOT)),
-            "clip_checkpoint": str(self.clip_weights.relative_to(PROJECT_ROOT)),
-            "dino_sha256": sha256_file(self.dino_weights),
-            "clip_sha256": sha256_file(self.clip_weights),
+            "weight_source": "online with automatic local caching",
+            "dino_repository": DINO_REPOSITORY,
+            "dino_model": DINO_MODEL,
+            "clip_model": CLIP_MODEL,
+            "clip_pretrained": CLIP_PRETRAINED,
             "split_sizes": {name: len(dataset) for name, dataset in self.datasets.items()},
             "checkpoint_selection": "maximum validation_seen IoU; test sets are not used for selection",
         }
@@ -775,6 +752,25 @@ class TrainingRuntime:
         figure.savefig(self.result_dir / "training_curves.png", dpi=180, bbox_inches="tight")
         plt.close(figure)
 
+        evaluation = (
+            predictions.groupby("split")[["iou", "dice", "leakage"]]
+            .mean()
+            .rename(index={"test_seen": "Seen", "test_unseen": "Unseen"})
+        )
+        figure, axis = plt.subplots(figsize=(8, 4.8))
+        evaluation.plot.bar(ax=axis, color=("#38bdf8", "#818cf8", "#f472b6"))
+        axis.set(
+            title=f"{EXPERIMENTS[self.config.experiment]['title']}: final test metrics",
+            xlabel="Evaluation split",
+            ylabel="Mean score",
+            ylim=(0, 1),
+        )
+        axis.tick_params(axis="x", rotation=0)
+        axis.grid(axis="y", alpha=0.25)
+        figure.tight_layout()
+        figure.savefig(self.result_dir / "evaluation_comparison.png", dpi=180, bbox_inches="tight")
+        plt.close(figure)
+
         unseen = predictions[predictions.split == "test_unseen"].sort_values("iou")
         chosen = unseen.iloc[[0, len(unseen) // 2, -1]]
         figure, axes = plt.subplots(3, 4, figsize=(13, 10))
@@ -837,13 +833,6 @@ def run_experiment(experiment: str) -> pd.DataFrame:
         "validation_metrics": checkpoint["validation_metrics"],
     }
     runtime.save_checkpoint(ui_checkpoint, "ui_model.pt")
-    manifest = sorted(
-        str(path.relative_to(PROJECT_ROOT))
-        for root in (runtime.checkpoint_dir, runtime.result_dir)
-        for path in root.rglob("*")
-        if path.is_file()
-    )
-    (runtime.result_dir / "artifact_manifest.txt").write_text("\n".join(manifest) + "\n")
     print(summary.to_string(index=False))
     print("Best checkpoint:", runtime.checkpoint_dir / "best.pt")
     print("UI checkpoint:", runtime.checkpoint_dir / "ui_model.pt")
@@ -941,5 +930,5 @@ def build_comparison() -> pd.DataFrame:
     plt.close(figure)
     print(comparison.to_string(index=False))
     print("Selected model:", selected)
-    print("Deployment checkpoint:", point_base / "best_model.pt")
+    print("Selected UI checkpoint:", point_base / "best_model.pt")
     return comparison

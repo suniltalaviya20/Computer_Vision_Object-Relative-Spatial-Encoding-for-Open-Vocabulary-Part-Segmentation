@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import io
 import json
-import os
 import threading
 from functools import lru_cache
 from pathlib import Path
@@ -13,11 +12,10 @@ from pathlib import Path
 import numpy as np
 import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from deployment.inference_options import (
+from inference_options import (
     OPTIONS as INFERENCE_OPTIONS,
     PARENT_CATEGORIES,
     PART_QUERIES,
@@ -75,21 +73,9 @@ PARTS_BY_NAME = {
 SUPPORTED_PART_QUERIES = set(PART_QUERIES)
 
 
-def _allowed_origins() -> list[str]:
-    value = os.getenv("PART_DEMO_ALLOWED_ORIGINS", "*")
-    return [origin.strip() for origin in value.split(",") if origin.strip()]
-
-
 app = FastAPI(
     title="Object-Relative Part Segmentation API",
     version="1.0.0",
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins(),
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
 )
 
 

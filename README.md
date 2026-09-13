@@ -16,21 +16,19 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 ├── dashboard/utils/             # model registry and demo inference
 ├── data/                        # Pascal-Part-116 (not committed)
 ├── datasets/                    # dataset and robustness loaders
-├── deployment/                  # API configuration, Dockerfile, runtime dependencies
 ├── final_training/              # exact final-study architecture and inference
-├── models/final_study/          # active deployment checkpoints and registry
-├── submission/
-│   ├── final_training_notebooks/ # reproducible training notebooks
-│   ├── final_training_results/   # metrics, plots, logs, executed notebooks
-│   └── trained_points/           # original training/resume artifacts
+├── inference_server.py          # local UI and inference API server
+├── models/final_study/          # active local-UI checkpoints and registry
+├── final_training_notebooks/     # reproducible training notebooks
+├── training_results/             # metrics, plots, notebooks, and checkpoints
 ├── scripts/                     # data, validation, and web export commands
 ├── src/                         # earlier model and geometry components
 └── web/                         # static browser demo
 ```
 
-The professor submission folder is retained as the complete training record.
-The main runtime copies only the smaller `ui_model.pt` artifacts into
-`models/final_study/`; `best.pt`, `last.pt`, logs, and reports are not duplicated.
+The notebooks and their complete training record are available directly from
+the project root. The main runtime copies only the smaller `ui_model.pt`
+artifacts into `models/final_study/`.
 
 ## Setup
 
@@ -41,31 +39,27 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The first inference may download DINOv2 and OpenCLIP. Later runs reuse their
-local caches. If fully offline, provide the training-compatible files at:
-
-```text
-dinov2/
-models/pretrained/dinov2_vits14_pretrain.pth
-models/pretrained/open_clip/ViT-B-32.pt
-```
+Training and inference download DINOv2 ViT-S/14 and OpenCLIP ViT-B/32
+QuickGELU (`openai`) automatically on first use. Later runs reuse the standard
+local model caches, so pretrained encoder files do not need to be stored in the
+repository.
 
 ## Final trained models
 
 The active run is `training_4217799`:
 
-| Model | Selected epoch | Validation IoU |
-|---|---:|---:|
-| Object-mask baseline | 14 | 0.2814 |
-| Fixed UVD | 12 | 0.2855 |
-| Query-gated UVD | 12 | 0.2837 |
-| Rotation-consistent UVD | 21 | **0.2981** |
-| Geometry-dropout UVD | 15 | 0.2871 |
+| Model | Epoch | Validation IoU | Test seen IoU | Test unseen IoU |
+|---|---:|---:|---:|---:|
+| Object-mask baseline | 14 | 0.2814 | 0.2935 | 0.2442 |
+| Fixed UVD | 12 | 0.2855 | 0.2984 | 0.2570 |
+| Query-gated UVD | 12 | 0.2837 | 0.2952 | 0.2518 |
+| **Rotation-consistent UVD** | **21** | **0.2981** | **0.3096** | **0.2721** |
+| Geometry-dropout UVD | 15 | 0.2871 | 0.3013 | 0.2468 |
 
 Rotation-consistent UVD is the selected model. Selection used validation IoU;
 test metrics were not used for checkpoint selection.
 
-Validate the copied deployment artifacts without loading the large encoders:
+Validate the copied local-UI artifacts without loading the large encoders:
 
 ```bash
 source .venv/bin/activate
@@ -161,13 +155,6 @@ POST /api/predict         current image + parent-mask part inference
 POST /api/parent/predict  automatic category and parent-mask prediction
 ```
 
-For a separately hosted static frontend, set the
-`part-segmentation-api` meta tag in `web/index.html` to the public Python API
-origin. Set `PART_DEMO_ALLOWED_ORIGINS` on the API host to the frontend origin,
-for example `https://object-relative-part-demo.pages.dev`. Cloudflare Pages can
-host the static `web/` directory, but the Python/PyTorch API needs a separate
-CPU or GPU service.
-
 The parent detector is an independent COCO-pretrained Mask R-CNN baseline. It
 maps supported COCO labels to Pascal-Part-116 parent categories; it does not
 alter or retrain the project part-segmentation model. Manual category selection,
@@ -179,23 +166,6 @@ for example, `giraffe` offers transferable trained animal parts such as `neck`,
 `leg`, and `hoof`, but not unrelated labels such as `door`. The shared mapping
 lives in `web/data/inference_options.json` and is validated by both the browser
 and API.
-
-## Production API container
-
-The static `web/` directory and the PyTorch API can be served together from one
-container. Build from the repository root:
-
-```bash
-docker build -f deployment/Dockerfile -t part-segmentation-demo .
-docker run --rm -p 8000:8000 part-segmentation-demo
-```
-
-The container intentionally runs one Uvicorn worker because every worker would
-load another copy of Mask R-CNN, DINOv2, and OpenCLIP. Use a host with enough
-memory and persistent model caches, or add the compatible pretrained encoder
-files described in Setup to the deployment image. The small trained
-segmentation heads under `models/final_study/` are already included. Do not use
-`--reload` in production.
 
 ## Rebuild website predictions
 
@@ -243,12 +213,30 @@ V, and D are computed relative to that mask.
 
 ## Reproducing training
 
-The full GPU training workflow remains in:
+The source notebooks are in `final_training_notebooks/`. Existing metrics,
+plots, executed notebooks, inference files, and resume checkpoints are
+together in `training_results/`.
 
-```text
-submission/
+Run the complete notebook sequence locally from the repository root:
+
+```bash
+source .venv/bin/activate
+bash scripts/run_full_training_overnight.sh
 ```
 
-Its notebooks, FAU Slurm script, numerical results, plots, completion markers,
-and resume checkpoints are preserved unchanged. They are not required merely to
-view the static website or use a deployment checkpoint.
+The workflow executes these notebooks in order:
+
+```text
+00_data_analysis.ipynb
+01_baseline_object_mask.ipynb
+02_fixed_uvd.ipynb
+03_query_gated_uvd.ipynb
+04_rotation_consistency.ipynb
+05_geometry_branch_dropout.ipynb
+06_final_comparison_and_model_selection.ipynb
+```
+
+Epoch checkpoints permit safe resume, and final model selection uses
+`validation_seen` IoU only. Test metrics do not control checkpoint selection.
+The training material is not required merely to view the static website or use
+a local-UI checkpoint.
