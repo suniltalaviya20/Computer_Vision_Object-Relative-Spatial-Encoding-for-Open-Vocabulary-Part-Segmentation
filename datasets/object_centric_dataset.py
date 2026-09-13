@@ -2,17 +2,17 @@ from torch.utils.data import Dataset
 
 from datasets import PascalPart116Dataset
 
-from src.preprocessing import (
+from experiments.implementations.features.preprocessing import (
     preprocess_segmentation_image,
     preprocess_mask,
 )
 
-from src.geometry import (
+from experiments.implementations.geometry_comparison.geometry import (
     create_relative_uv,
     create_boundary_distance,
 )
 
-from src.object_zoom import (
+from experiments.implementations.object_centric_zoom.object_zoom import (
     get_square_object_crop,
     square_crop_with_padding,
     prepare_crop_image,

@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 
 from datasets import SegmentationDataset
 
-from src.geometry import (
+from experiments.implementations.geometry_comparison.geometry import (
     create_absolute_xy,
     create_relative_uv,
 )

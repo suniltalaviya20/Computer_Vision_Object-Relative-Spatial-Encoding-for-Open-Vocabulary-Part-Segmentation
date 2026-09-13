@@ -29,13 +29,13 @@ if str(PROJECT_ROOT) not in sys.path:
 # PROJECT IMPORTS
 # ============================================================
 
-from dashboard.utils.models import (
+from final_model.demo_models import (
     load_seen_dataset,
     load_unseen_dataset,
     predict_sample,
 )
 
-from dashboard.utils.demo_registry import (
+from final_model.demo_registry import (
     get_demo_models,
     get_frontend_models,
     validate_demo_models,

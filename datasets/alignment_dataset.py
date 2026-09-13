@@ -2,12 +2,12 @@ from torch.utils.data import Dataset
 
 from datasets import PascalPart116Dataset
 
-from src.preprocessing import (
+from experiments.implementations.features.preprocessing import (
     preprocess_segmentation_image,
     preprocess_mask,
 )
 
-from src.geometry import (
+from experiments.implementations.geometry_comparison.geometry import (
     create_relative_uv,
 )
 

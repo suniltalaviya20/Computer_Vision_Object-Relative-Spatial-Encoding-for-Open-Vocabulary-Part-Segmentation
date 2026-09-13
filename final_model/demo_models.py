@@ -7,13 +7,13 @@ import torch
 import torch.nn.functional as F
 from torch.torch_version import TorchVersion
 
-from dashboard.utils.demo_registry import DEMO_MODELS
+from final_model.demo_registry import DEMO_MODELS
 from datasets import ObjectCentricDataset
-from final_training.training_core import PartSegmenter, TrainingConfig, relative_uvd
-from src.dino_features import get_device, load_dino_model
+from final_model.training_core import PartSegmenter, TrainingConfig, relative_uvd
+from experiments.implementations.features.dino_features import get_device, load_dino_model
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEVICE = get_device()
 
 QUALITATIVE_MODELS = {
