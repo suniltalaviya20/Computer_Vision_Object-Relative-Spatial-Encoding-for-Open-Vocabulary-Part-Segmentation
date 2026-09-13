@@ -19,15 +19,16 @@ RUNNER_FAMILIES = ("analysis", "feature_extraction", "baseline_segmentation", "g
 
 
 def active_python():
-    yield ROOT / "deployment" / "inference_server.py"
+    yield ROOT / "inference_server.py"
+    yield ROOT / "inference_options.py"
     for directory in ACTIVE_DIRS:
         yield from (ROOT / directory).rglob("*.py")
 
 
 class StructureTests(unittest.TestCase):
     def test_layout(self):
-        for directory in (*ACTIVE_DIRS, "web", "tests", "submission/final_training",
-                          "submission/scripts", "data", "models", "outputs",
+        for directory in (*ACTIVE_DIRS, "web", "tests", "final_training_notebooks",
+                          "scripts", "data", "models", "training_results",
                           "experiments/implementations", "experiments/runners"):
             with self.subTest(directory=directory):
                 self.assertTrue((ROOT / directory).is_dir())
@@ -44,8 +45,9 @@ class StructureTests(unittest.TestCase):
         for family in RUNNER_FAMILIES:
             self.assertTrue((ROOT / "experiments/runners" / family).is_dir())
             self.assertFalse((ROOT / "experiments" / family).exists())
-        for old in ("src", "final_training", "scripts", "dashboard", "deployment/requirements-api.txt"):
+        for old in ("src", "dashboard", "deployment/requirements-api.txt"):
             self.assertFalse((ROOT / old).exists(), old)
+        self.assertFalse(any((ROOT / "final_training").glob("*.py")))
         self.assertTrue((ROOT / "deployment/requirements.txt").is_file())
 
     def test_active_imports(self):
@@ -97,9 +99,9 @@ class StructureTests(unittest.TestCase):
                             {"Path": Path, "__file__": str(path)})
             self.assertEqual(resolved, ROOT, str(path))
 
-    def test_submission_unchanged(self):
+    def test_training_artifacts_unchanged(self):
         changed = subprocess.check_output(
-            ["git", "diff", "HEAD", "--name-only", "--", "submission/"], cwd=ROOT, text=True
+            ["git", "diff", "HEAD", "--name-only", "--", "final_training_notebooks/", "training_results/"], cwd=ROOT, text=True
         )
         self.assertEqual(changed, "", changed)
 

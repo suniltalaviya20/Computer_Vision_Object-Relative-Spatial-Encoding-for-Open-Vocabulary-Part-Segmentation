@@ -21,20 +21,17 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 │   └── runners/                 # train/evaluate/analyse entry points and Slurm workflows
 ├── final_model/                 # consolidated final model training/inference and demo registry
 ├── models/final_study/          # active deployment checkpoints and registry
-├── submission/                  # frozen grading/reproducibility package
-│   ├── final_training_notebooks/ # reproducible training notebooks
-│   ├── final_training_results/   # metrics, plots, logs, executed notebooks
-│   └── trained_points/           # original training/resume artifacts
+├── final_training_notebooks/    # reproducible training notebooks
+├── training_results/            # metrics, plots, logs and training artifacts
+├── scripts/                     # notebook training workflow
 ├── tools/                       # operational project utilities
-├── tests/                       # lightweight structural checks
-├── outputs/                     # generated experiment results
-├── deployment/                 # API and deployment configuration
+├── tests/                       # layout and API regression checks
 ├── requirements.txt             # project dependencies
 ├── README.md
 └── web/                         # static browser demo
 ```
 
-The professor submission folder is retained as the complete training record.
+The notebooks and training results are retained as the complete training record.
 The main runtime copies only the smaller `ui_model.pt` artifacts into
 `models/final_study/`; `best.pt`, `last.pt`, logs, and reports are not duplicated.
 
@@ -167,12 +164,8 @@ POST /api/predict         current image + parent-mask part inference
 POST /api/parent/predict  automatic category and parent-mask prediction
 ```
 
-For a separately hosted static frontend, set the
-`part-segmentation-api` meta tag in `web/index.html` to the public Python API
-origin. Set `PART_DEMO_ALLOWED_ORIGINS` on the API host to the frontend origin,
-for example `https://object-relative-part-demo.pages.dev`. Cloudflare Pages can
-host the static `web/` directory, but the Python/PyTorch API needs a separate
-CPU or GPU service.
+Serve the frontend and API together with Uvicorn so the browser can reach the
+same-origin `/api/` endpoints.
 
 The parent detector is an independent COCO-pretrained Mask R-CNN baseline. It
 maps supported COCO labels to Pascal-Part-116 parent categories; it does not
@@ -263,9 +256,28 @@ bash scripts/run_full_training_overnight.sh
 The workflow executes these notebooks in order:
 
 ```text
-submission/
+00_data_analysis.ipynb
+01_baseline_object_mask.ipynb
+02_fixed_uvd.ipynb
+03_query_gated_uvd.ipynb
+04_rotation_consistency.ipynb
+05_geometry_branch_dropout.ipynb
+06_final_comparison_and_model_selection.ipynb
 ```
 
 Its notebooks, FAU Slurm script, numerical results, plots, completion markers,
 and resume checkpoints are preserved unchanged. They are not required merely to
 view the static website or use a deployment checkpoint.
+
+## Regression checks
+
+Run the layout and HTTP API tests without downloading encoder weights:
+
+```bash
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+python tools/verify_final_models.py
+```
+
+The API tests use controlled model outputs to check uploads, model selection,
+parent detection and static assets. Real predictions require the encoder weights.
