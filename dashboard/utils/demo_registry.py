@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FINAL_MODEL_ROOT = PROJECT_ROOT / "models" / "final_study"
 
 

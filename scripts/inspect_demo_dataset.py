@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 # IMPORTS
 # ============================================================
 
-from final_model.demo_models import (
+from dashboard.utils.models import (
     load_seen_dataset,
     load_unseen_dataset,
 )

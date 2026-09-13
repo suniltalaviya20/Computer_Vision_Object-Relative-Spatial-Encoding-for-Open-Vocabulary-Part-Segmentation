@@ -1,7 +1,7 @@
 import torch
 import open_clip
 
-from experiments.implementations.features.dino_features import get_device
+from src.dino_features import get_device
 
 
 def load_clip_model(

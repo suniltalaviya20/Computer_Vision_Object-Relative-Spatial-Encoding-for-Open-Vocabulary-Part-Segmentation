@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from experiments.implementations.features.preprocessing import (
+from src.preprocessing import (
     get_resize_info,
 )
 

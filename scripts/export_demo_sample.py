@@ -21,12 +21,12 @@ if str(PROJECT_ROOT) not in sys.path:
     )
 
 
-from final_model.demo_models import (
+from dashboard.utils.models import (
     load_unseen_dataset,
     predict_sample,
 )
 
-from final_model.demo_registry import (
+from dashboard.utils.demo_registry import (
     get_demo_models,
     get_frontend_models,
     validate_demo_models,
@@ -669,8 +669,8 @@ for model in demo_models:
     ):
 
         save_gray(
-            result[
-                "u"
+            sample[
+                "crop_relative_u"
             ],
             model_dir
             / "u.png",
@@ -687,7 +687,7 @@ for model in demo_models:
                 f"u.png",
 
             "space":
-                "full_image",
+                "crop",
 
             "description":
                 "U: horizontal position "
@@ -705,8 +705,8 @@ for model in demo_models:
     ):
 
         save_gray(
-            result[
-                "v"
+            sample[
+                "crop_relative_v"
             ],
             model_dir
             / "v.png",
@@ -723,7 +723,7 @@ for model in demo_models:
                 f"v.png",
 
             "space":
-                "full_image",
+                "crop",
 
             "description":
                 "V: vertical position "
@@ -741,8 +741,8 @@ for model in demo_models:
     ):
 
         save_gray(
-            result[
-                "d"
+            sample[
+                "crop_boundary_d"
             ],
             model_dir
             / "d.png",
@@ -759,7 +759,7 @@ for model in demo_models:
                 f"d.png",
 
             "space":
-                "full_image",
+                "crop",
 
             "description":
                 "D: distance to the "

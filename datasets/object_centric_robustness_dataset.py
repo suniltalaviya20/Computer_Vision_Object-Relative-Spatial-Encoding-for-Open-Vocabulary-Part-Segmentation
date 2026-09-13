@@ -5,24 +5,24 @@ from datasets import (
     ObjectCentricDataset,
 )
 
-from experiments.implementations.features.preprocessing import (
+from src.preprocessing import (
     preprocess_segmentation_image,
     preprocess_mask,
 )
 
-from experiments.implementations.geometry_comparison.geometry import (
+from src.geometry import (
     create_relative_uv,
     create_boundary_distance,
 )
 
-from experiments.implementations.object_centric_zoom.object_zoom import (
+from src.object_zoom import (
     get_square_object_crop,
     square_crop_with_padding,
     prepare_crop_image,
     prepare_crop_mask,
 )
 
-from experiments.implementations.robustness.robustness import (
+from src.robustness import (
     rotate_sample,
     erode_mask,
     dilate_mask,

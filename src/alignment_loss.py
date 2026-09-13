@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from experiments.implementations.features.metrics import (
+from src.metrics import (
     segmentation_loss,
 )
 
