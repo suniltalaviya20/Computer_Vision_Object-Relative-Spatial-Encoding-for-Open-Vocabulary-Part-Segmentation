@@ -118,11 +118,11 @@ const state = {
 
   sample: null,
 
+  splitId: "test_unseen",
+
   conditionId: "clean",
 
-  comparing: false,
-
-  linkedViews: true,
+  comparing: true,
 
   viewers: {
 
@@ -566,6 +566,119 @@ function hasView(
 
 
 // ============================================================
+// EVALUATION SPLITS
+// ============================================================
+
+function splitName(
+  splitId
+) {
+
+  return splitId === "test_unseen"
+    ? "Unseen"
+    : "Seen";
+
+}
+
+
+const UNSEEN_SHOWCASE_MIN_IOU = 0.5;
+
+
+function catalogueSamplesForSplit(
+  splitId
+) {
+
+  return state.samples.filter(
+    (sample) =>
+      sample.split === splitId
+  );
+
+}
+
+
+function bestSampleIoU(
+  sample
+) {
+
+  const values = Object.values(
+    sample.results || {}
+  )
+    .map(
+      (result) =>
+        result?.metrics?.iou
+    )
+    .filter(Number.isFinite);
+
+  return values.length > 0
+    ? Math.max(...values)
+    : null;
+
+}
+
+
+function isShowcaseSample(
+  sample
+) {
+
+  if (
+    sample.split !== "test_unseen"
+  ) {
+    return true;
+  }
+
+  const bestIoU =
+    bestSampleIoU(sample);
+
+  return bestIoU !== null
+    && bestIoU >= UNSEEN_SHOWCASE_MIN_IOU;
+
+}
+
+
+function samplesForSelectedSplit() {
+
+  return catalogueSamplesForSplit(
+    state.splitId
+  ).filter(isShowcaseSample);
+
+}
+
+
+function populateSplitSelect() {
+
+  const select =
+    $("#split-select");
+
+  const splits = [
+    "test_seen",
+    "test_unseen",
+  ];
+
+  select.innerHTML = "";
+
+  for (const splitId of splits) {
+
+    const splitSamples =
+      catalogueSamplesForSplit(splitId);
+
+    const visibleCount =
+      splitSamples.filter(isShowcaseSample).length;
+
+    const option = document.createElement("option");
+    option.value = splitId;
+    option.textContent =
+      `${splitName(splitId)} examples (${visibleCount})`;
+    option.disabled = visibleCount === 0;
+    select.appendChild(option);
+
+  }
+
+  select.value = state.splitId;
+
+}
+
+
+
+// ============================================================
 // POPULATE OBJECT SELECT
 // ============================================================
 
@@ -577,7 +690,7 @@ function populateObjects() {
 
   const objects = [
     ...new Set(
-      state.samples.map(
+      samplesForSelectedSplit().map(
         (sample) =>
           sample.object
       )
@@ -644,7 +757,7 @@ function populateParts(
   const parts = [
     ...new Set(
 
-      state.samples
+      samplesForSelectedSplit()
 
         .filter(
           (sample) =>
@@ -819,7 +932,8 @@ function matchingSamples() {
 
   return state.samples.filter(
     (sample) =>
-      sample.object === objectName
+      sample.split === state.splitId
+      && sample.object === objectName
       && sample.part === partName
   );
 }
@@ -1394,6 +1508,11 @@ function renderViewer(
       viewer.modelId
     );
 
+  renderSplitPerformance(
+    viewerId,
+    viewer.modelId
+  );
+
 
   const modelSelect =
     $(
@@ -1629,17 +1748,6 @@ function renderMetrics(
       `[data-leakage="${viewerId}"]`
     );
 
-  const query =
-    $(
-      `[data-query="${viewerId}"]`
-    );
-
-  const checkpoint =
-    $(
-      `[data-checkpoint="${viewerId}"]`
-    );
-
-
   if (!result) {
 
     iou.textContent =
@@ -1649,12 +1757,6 @@ function renderMetrics(
       "—";
 
     leakage.textContent =
-      "—";
-
-    query.textContent =
-      "—";
-
-    checkpoint.textContent =
       "—";
 
     return;
@@ -1683,19 +1785,79 @@ function renderMetrics(
     );
 
 
-  query.textContent =
-    state.sample
-      ? `Query: "${state.sample.query}"`
-      : "—";
+}
 
 
-  checkpoint.textContent =
-    result.checkpoint_id
-    ? result.checkpoint_id
-        .split("/")
-        .slice(-2)
-        .join("/")
-    : "—";
+
+// ============================================================
+// SPLIT PERFORMANCE
+// ============================================================
+
+function meanMetricForSplit(
+  modelId,
+  metricName
+) {
+
+  const values = catalogueSamplesForSplit(state.splitId)
+    .map(
+      (sample) =>
+        sample.results?.[modelId]?.metrics?.[metricName]
+    )
+    .filter(Number.isFinite);
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  return values.reduce(
+    (total, value) => total + value,
+    0
+  ) / values.length;
+
+}
+
+
+function renderSplitPerformance(
+  viewerId,
+  modelId
+) {
+
+  const label = $(`[data-split-label="${viewerId}"]`);
+  const average = $(`[data-split-iou="${viewerId}"]`);
+  const delta = $(`[data-split-delta="${viewerId}"]`);
+  const splitSamples = catalogueSamplesForSplit(state.splitId);
+  const mean = meanMetricForSplit(modelId, "iou");
+  const baselineId = "final_baseline_object_mask";
+  const baselineMean = meanMetricForSplit(baselineId, "iou");
+
+  label.textContent =
+    `${splitName(state.splitId)} catalogue · ${splitSamples.length} examples`;
+
+  average.textContent =
+    mean === null
+      ? "Mean IoU —"
+      : `Mean IoU ${formatMetric(mean)}`;
+
+  delta.classList.remove("is-positive", "is-negative");
+
+  if (mean === null || baselineMean === null) {
+    delta.textContent = "No aggregate available";
+    return;
+  }
+
+  if (modelId === baselineId) {
+    delta.textContent = "Baseline reference";
+    return;
+  }
+
+  const difference = (mean - baselineMean) * 100;
+  delta.textContent =
+    `${difference >= 0 ? "+" : ""}${difference.toFixed(1)} pp vs baseline`;
+  delta.classList.add(
+    difference >= 0
+      ? "is-positive"
+      : "is-negative"
+  );
 
 }
 
@@ -1839,17 +2001,16 @@ function renderExampleSummary() {
   const name =
     $("#example-name");
 
-  const id =
-    $("#example-id");
-
+  const splitLabel =
+    $("#example-split-label");
 
   if (!state.sample) {
 
     name.textContent =
       "—";
 
-    id.textContent =
-      "No sample selected";
+    splitLabel.textContent =
+      "CURRENT EXAMPLE";
 
     return;
 
@@ -1863,10 +2024,8 @@ function renderExampleSummary() {
       state.sample.part
     )}`;
 
-
-  id.textContent =
-    state.sample.id;
-
+  splitLabel.textContent =
+    `${splitName(state.sample.split).toUpperCase()} EXAMPLE`;
 }
 
 
@@ -1925,9 +2084,6 @@ function renderComparison() {
   const button =
     $("#compare-button");
 
-  const linked =
-    $("#link-views-container");
-
   const summary =
     $("#comparison-summary");
 
@@ -1954,10 +2110,6 @@ function renderComparison() {
     state.comparing
       ? "Exit comparison"
       : "Compare models";
-
-
-  linked.hidden =
-    !state.comparing;
 
 
   summary.hidden =
@@ -2001,6 +2153,25 @@ function render() {
   }
 
   refreshEnhancedUI();
+
+}
+
+
+
+// ============================================================
+// SPLIT CHANGE
+// ============================================================
+
+function handleSplitChange(
+  event
+) {
+
+  state.splitId =
+    event.target.value;
+
+  populateObjects();
+  populateParts();
+  selectFirstMatchingSample();
 
 }
 
@@ -2051,7 +2222,6 @@ function handleConditionChange(
 
   if (
     state.comparing
-    && state.linkedViews
   ) {
 
     state.viewers.b.viewId =
@@ -2114,7 +2284,6 @@ function handleViewChange(
 
   if (
     state.comparing
-    && state.linkedViews
   ) {
 
     const otherViewer =
@@ -2160,7 +2329,6 @@ function toggleCompare() {
 
   if (
     state.comparing
-    && state.linkedViews
   ) {
 
     state.viewers.b.viewId =
@@ -2182,61 +2350,30 @@ function toggleCompare() {
 
 
 // ============================================================
-// LINK VIEWS
-// ============================================================
-
-function handleLinkViews(
-  event
-) {
-
-  state.linkedViews =
-    event.target.checked;
-
-
-  if (
-    state.linkedViews
-  ) {
-
-    const view =
-      state.viewers.a.viewId;
-
-
-    if (
-      hasView(
-        state.viewers.b.modelId,
-        view
-      )
-    ) {
-
-      state.viewers.b.viewId =
-        view;
-
-    }
-
-  }
-
-
-  render();
-
-}
-
-
-
-// ============================================================
 // INITIAL SAMPLE
 // ============================================================
 
 function chooseInitialSample() {
 
+  const splitSamples =
+    samplesForSelectedSplit();
+
   if (
-    state.samples.length === 0
+    splitSamples.length === 0
   ) {
     return;
   }
 
 
+  const preferredSample = splitSamples.find(
+    (sample) =>
+      sample.id === "val:2008_007814:part_105"
+  );
+
+
   state.sample =
-    state.samples[0];
+    preferredSample
+    || splitSamples[0];
 
 
   const objectSelect =
@@ -2410,6 +2547,8 @@ async function loadCatalogue() {
     );
 
 
+    populateSplitSelect();
+
     populateObjects();
 
     populateModels();
@@ -2417,19 +2556,6 @@ async function loadCatalogue() {
     chooseInitialSample();
 
     populateUploadControls();
-
-
-    $("#status-badge")
-      .classList.add(
-        "connected"
-      );
-
-
-    $("#status-text")
-      .textContent =
-        "Demo ready";
-
-
     render();
 
     document.body.classList.remove(
@@ -2449,13 +2575,6 @@ async function loadCatalogue() {
     console.error(
       error
     );
-
-
-    $("#status-text")
-      .textContent =
-        "Data unavailable";
-
-
     $("#setup-notice")
       .hidden =
         false;
@@ -2474,6 +2593,13 @@ async function loadCatalogue() {
 // ============================================================
 // EVENTS
 // ============================================================
+
+$("#split-select")
+  .addEventListener(
+    "change",
+    handleSplitChange
+  );
+
 
 $("#object-select")
   .addEventListener(
@@ -2507,13 +2633,6 @@ $("#compare-button")
   .addEventListener(
     "click",
     toggleCompare
-  );
-
-
-$("#link-views")
-  .addEventListener(
-    "change",
-    handleLinkViews
   );
 
 
@@ -2554,26 +2673,6 @@ let toastTimer = null;
 function setupEnhancedExperience() {
 
   document.body.classList.add("is-loading");
-
-  const introContent = $(".introduction > div");
-
-  if (introContent && !$("#demo-stats")) {
-
-    const stats = document.createElement("div");
-
-    stats.id = "demo-stats";
-    stats.className = "demo-stats";
-    stats.setAttribute("aria-label", "Demo catalogue summary");
-    stats.innerHTML = `
-      <span><strong data-stat="samples">—</strong> examples</span>
-      <span><strong data-stat="models">—</strong> models</span>
-      <span><strong data-stat="conditions">—</strong> conditions</span>
-    `;
-
-    introContent.appendChild(stats);
-
-  }
-
   const toast = document.createElement("div");
 
   toast.id = "demo-toast";
@@ -2638,26 +2737,6 @@ function refreshEnhancedUI() {
     if (element) {
       element.textContent = value || "—";
     }
-
-  }
-
-  const sampleId = $("#example-id");
-
-  if (sampleId) {
-
-    sampleId.classList.toggle(
-      "is-copyable",
-      Boolean(state.sample)
-    );
-
-    sampleId.tabIndex = state.sample ? 0 : -1;
-    sampleId.setAttribute(
-      "role",
-      state.sample ? "button" : "status"
-    );
-    sampleId.title = state.sample
-      ? "Click to copy sample ID"
-      : "";
 
   }
 
@@ -2770,9 +2849,6 @@ function handleEnhancedClick(event) {
     return;
   }
 
-  if (event.target.closest("#example-id.is-copyable")) {
-    copySampleId();
-  }
 
 }
 
@@ -2784,18 +2860,6 @@ function handleKeyboardShortcuts(event) {
   }
 
   const tag = event.target.tagName;
-
-  if (
-    event.target.matches("#example-id.is-copyable")
-    && (
-      event.key === "Enter"
-      || event.key === " "
-    )
-  ) {
-    event.preventDefault();
-    copySampleId();
-    return;
-  }
 
   if (
     event.target.isContentEditable
@@ -2914,29 +2978,6 @@ function closeLightbox() {
 
 }
 
-
-async function copySampleId() {
-
-  if (!state.sample) {
-    return;
-  }
-
-  try {
-
-    await navigator.clipboard.writeText(state.sample.id);
-    showToast("Sample ID copied");
-
-  }
-  catch (error) {
-
-    console.warn("Clipboard unavailable", error);
-    showToast(state.sample.id);
-
-  }
-
-}
-
-
 function showToast(message) {
 
   const toast = $("#demo-toast");
@@ -2960,15 +3001,9 @@ function showToast(message) {
 // USER IMAGE INFERENCE
 // ============================================================
 
-const API_BASE_URL = (
-  document.querySelector(
-    'meta[name="part-segmentation-api"]'
-  )?.content || ""
-).trim().replace(/\/$/, "");
-
 function inferenceURL(path) {
 
-  return `${API_BASE_URL}${path}`;
+  return path;
 
 }
 
@@ -4231,7 +4266,7 @@ function setupDemoModeSwitch() {
     });
   }
 
-  setDemoMode("upload");
+  setDemoMode("catalogue");
 
 }
 
