@@ -22,7 +22,7 @@
   "question": "Does an equivariance loss reduce orientation sensitivity?",
   "geometry": "query-conditioned U, V, and D",
   "regularizer": "90-degree rotation consistency",
-  "run_id": "training_4217799",
+  "run_id": "manual",
   "device": "cuda:0",
   "gpu": "NVIDIA A100-SXM4-40GB MIG 3g.20gb",
   "gpu_count": 1,

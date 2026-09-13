@@ -1,5 +1,5 @@
 {
-  "run_id": "training_4217799",
+  "run_id": "manual",
   "selection_rule": "maximum validation_seen IoU; no test metric used for selection",
   "selected_model": "rotation_consistent",
   "selected_checkpoint": "models/final_study/best_model.pt",

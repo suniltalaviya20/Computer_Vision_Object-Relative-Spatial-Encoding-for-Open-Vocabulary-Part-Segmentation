@@ -14,17 +14,13 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 ```text
 .
 ├── data/                        # Pascal-Part-116 (not committed)
-├── datasets/                    # dataset loaders
-├── deployment/                  # API configuration, Dockerfile, runtime dependencies
-├── experiments/
-│   ├── implementations/         # reusable implementations for research experiments
-│   └── runners/                 # train/evaluate/analyse entry points and Slurm workflows
-├── final_model/                 # consolidated final model training/inference and demo registry
+├── datasets/                    # Pascal-Part loader and label metadata
+├── deployment/                  # local FastAPI server
+├── final_model/                 # final architecture, training, and inference
 ├── models/final_study/          # active deployment checkpoints and registry
 ├── final_training_notebooks/    # reproducible training notebooks
-├── training_results/            # metrics, plots, logs and training artifacts
+├── training_results/            # metrics, plots and training artifacts
 ├── scripts/                     # notebook training workflow
-├── tools/                       # operational project utilities
 ├── tests/                       # layout and API regression checks
 ├── requirements.txt             # project dependencies
 ├── README.md
@@ -44,18 +40,10 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The first inference may download DINOv2 and OpenCLIP. Later runs reuse their
-local caches. If fully offline, provide the training-compatible files at:
-
-```text
-dinov2/
-models/pretrained/dinov2_vits14_pretrain.pth
-models/pretrained/open_clip/ViT-B-32.pt
-```
+The first training or inference run downloads DINOv2 and OpenCLIP from their
+official online sources. Later runs reuse the standard local caches.
 
 ## Final trained models
-
-The active run is `training_4217799`:
 
 | Model | Selected epoch | Validation IoU |
 |---|---:|---:|
@@ -68,24 +56,17 @@ The active run is `training_4217799`:
 Rotation-consistent UVD is the selected model. Selection used validation IoU;
 test metrics were not used for checkpoint selection.
 
-Validate the copied deployment artifacts without loading the large encoders:
-
-```bash
-source .venv/bin/activate
-python tools/verify_final_models.py
-```
-
 ## Dataset
 
-Download and prepare Pascal-Part-116:
+Download and prepare Pascal-Part-116 from the repository root:
 
 ```bash
 source .venv/bin/activate
-python tools/download_dataset.py
-python tools/prepare_dataset.py
+python scripts/download_dataset.py
+python scripts/prepare_dataset.py
 ```
 
-Expected locations:
+The scripts create and validate these locations:
 
 ```text
 data/raw/PascalPart116/
@@ -179,43 +160,7 @@ for example, `giraffe` offers transferable trained animal parts such as `neck`,
 lives in `web/data/inference_options.json` and is validated by both the browser
 and API.
 
-## Production API container
-
-The static `web/` directory and the PyTorch API can be served together from one
-container. Build from the repository root:
-
-```bash
-docker build -f deployment/Dockerfile -t part-segmentation-demo .
-docker run --rm -p 8000:8000 part-segmentation-demo
-```
-
-The container intentionally runs one Uvicorn worker because every worker would
-load another copy of Mask R-CNN, DINOv2, and OpenCLIP. Use a host with enough
-memory and persistent model caches, or add the compatible pretrained encoder
-files described in Setup to the deployment image. The small trained
-segmentation heads under `models/final_study/` are already included. Do not use
-`--reload` in production.
-
-## Rebuild website predictions
-
-The registry at `final_model/demo_registry.py` is the single source of truth
-for the five model names and checkpoint paths.
-
-Quickly test real inference first:
-
-```bash
-source .venv/bin/activate
-python tools/test_demo_robustness.py
-```
-
-Then export the clean catalogue and six robustness conditions:
-
-```bash
-python tools/export_demo_catalogue.py
-python tools/export_demo_robustness.py
-```
-
-The export creates the 111-example static demo under:
+The prepared 111-example static demo is stored under:
 
 ```text
 web/data/catalogue.json
@@ -246,14 +191,7 @@ The source notebooks are in `final_training_notebooks/`. Existing metrics,
 plots, executed notebooks, inference files, and resume checkpoints are
 together in `training_results/`.
 
-Run the complete notebook sequence locally from the repository root:
-
-```bash
-source .venv/bin/activate
-bash scripts/run_full_training_overnight.sh
-```
-
-The workflow executes these notebooks in order:
+Open Jupyter from the repository root and run these notebooks manually in order:
 
 ```text
 00_data_analysis.ipynb
@@ -265,9 +203,13 @@ The workflow executes these notebooks in order:
 06_final_comparison_and_model_selection.ipynb
 ```
 
-Its notebooks, FAU Slurm script, numerical results, plots, completion markers,
-and resume checkpoints are preserved unchanged. They are not required merely to
-view the static website or use a deployment checkpoint.
+Each experiment notebook has a visible `FRESH_TRAINING` setting. Keep it `True`
+for a new run. Change it to `False` before restarting an interrupted notebook so
+training resumes from its last saved epoch.
+
+The numerical results, plots, completion markers, and resume checkpoints are
+kept under `training_results/`. They are not required merely to view the static
+website or use an inference checkpoint.
 
 ## Regression checks
 
@@ -276,7 +218,6 @@ Run the layout and HTTP API tests without downloading encoder weights:
 ```bash
 source .venv/bin/activate
 python -m unittest discover -s tests -v
-python tools/verify_final_models.py
 ```
 
 The API tests use controlled model outputs to check uploads, model selection,

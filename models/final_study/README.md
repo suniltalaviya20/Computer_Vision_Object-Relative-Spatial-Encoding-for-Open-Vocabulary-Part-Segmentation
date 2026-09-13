@@ -1,7 +1,6 @@
 # Final-study local-UI models
 
-These models come from the completed run `training_4217799` in
-`training_results/`.
+These models come from the completed experiments in `training_results/`.
 
 Only compact UI checkpoints are stored here:
 
@@ -12,10 +11,9 @@ Only compact UI checkpoints are stored here:
 - `geometry_dropout.pt`
 - `best_model.pt` (an alias of `rotation_consistent.pt`)
 
-The run ID is recorded in `model_registry.json`; because this is the only active
-final run, its files are kept directly in this folder without another run-ID
-directory. The dashboard registry in `final_model/demo_registry.py` is the source of
-truth for UI names and checkpoint paths. Training-resume checkpoints, reports,
+The files are kept directly in this folder without another run-ID directory.
+`model_registry.json` is the source of truth for UI names and checkpoint
+paths. Training-resume checkpoints, reports,
 and executed notebooks remain under `training_results/` and are not duplicated
 here.
 

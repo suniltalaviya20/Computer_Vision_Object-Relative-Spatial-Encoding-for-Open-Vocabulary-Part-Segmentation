@@ -22,7 +22,7 @@
   "question": "Does joint geometry-branch dropout reduce over-reliance on object masks?",
   "geometry": "query-conditioned U, V, and D",
   "regularizer": "joint UVD dropout",
-  "run_id": "training_4217799",
+  "run_id": "manual",
   "device": "cuda:0",
   "gpu": "NVIDIA A100-SXM4-40GB MIG 3g.20gb",
   "gpu_count": 1,

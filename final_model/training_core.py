@@ -573,7 +573,8 @@ class TrainingRuntime:
 
     def train(self) -> tuple[PartSegmenter, pd.DataFrame, dict[str, Any]]:
         completion_path = self.result_dir / "completion.json"
-        if completion_path.is_file() and (self.checkpoint_dir / "best.pt").is_file():
+        fresh_run = os.environ.get("FINAL_TRAINING_FRESH") == "1"
+        if not fresh_run and completion_path.is_file() and (self.checkpoint_dir / "best.pt").is_file():
             print(f"{self.config.experiment} is already complete for run {run_id()}; reusing artifacts.")
             model, checkpoint = self.load_best()
             return model, pd.read_csv(self.result_dir / "history.csv"), checkpoint
@@ -595,7 +596,7 @@ class TrainingRuntime:
         epochs_without_meaningful_improvement = 0
         start_epoch = 1
         last_path = self.checkpoint_dir / "last.pt"
-        if last_path.is_file():
+        if last_path.is_file() and not fresh_run:
             checkpoint = torch.load(last_path, map_location=self.device, weights_only=False)
             previous = checkpoint["config"]
             controlled = (
@@ -826,7 +827,7 @@ def run_experiment(experiment: str) -> pd.DataFrame:
     ui_checkpoint = {
         "format_version": 1,
         "experiment": experiment,
-        "model_class": "final_training.training_core.PartSegmenter",
+        "model_class": "final_model.training_core.PartSegmenter",
         "model_state": checkpoint["model_state"],
         "config": checkpoint["config"],
         "selected_epoch": checkpoint["epoch"],

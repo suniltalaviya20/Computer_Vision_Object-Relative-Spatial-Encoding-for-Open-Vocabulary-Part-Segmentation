@@ -923,20 +923,16 @@ def main() -> None:
         print("=" * 40)
         print()
         print("Next command:")
-        print("pytest -q")
-        print()
-        print("Then inspect a sample:")
         print(
-            "python tools/"
-            "inspect_dataset.py "
-            "--split train"
+            "python -m unittest "
+            "discover -s tests -v"
         )
         print()
         print(
             "Use --force to regenerate:"
         )
         print(
-            "python tools/"
+            "python scripts/"
             "prepare_dataset.py --force"
         )
         return
@@ -1210,11 +1206,10 @@ def main() -> None:
     )
     print("=" * 40)
     print()
-    print("Next command:")
+    print("Next step:")
     print(
-        "python tools/"
-        "inspect_dataset.py "
-        "--split train"
+        "Open final_training_notebooks/"
+        "00_data_analysis.ipynb"
     )
 
 

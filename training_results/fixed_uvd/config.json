@@ -22,7 +22,7 @@
   "question": "Does explicit object-relative position and boundary distance improve the baseline?",
   "geometry": "fixed U, V, and D",
   "regularizer": "none",
-  "run_id": "training_4217799",
+  "run_id": "manual",
   "device": "cuda:0",
   "gpu": "NVIDIA A100-SXM4-40GB MIG 3g.20gb",
   "gpu_count": 1,

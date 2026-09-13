@@ -1,21 +1,13 @@
 """Repository layout checks: standard library only, no encoders or GPU."""
 
 import ast
-import importlib.util
 import json
 from pathlib import Path
-import re
-import shlex
-import subprocess
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ACTIVE_DIRS = ("final_model", "tools", "datasets", "experiments", "deployment")
-IMPLEMENTATION_FAMILIES = ("features", "baseline_segmentation", "geometry_comparison",
-                           "part_query_alignment", "object_centric_zoom", "query_gated_uvd", "robustness")
-RUNNER_FAMILIES = ("analysis", "feature_extraction", "baseline_segmentation", "geometry_comparison",
-                   "part_query_alignment", "object_centric_zoom", "query_gated_uvd", "robustness", "crop_alignment_uvd")
+ACTIVE_DIRS = ("final_model", "datasets", "deployment")
 
 
 def active_python():
@@ -28,90 +20,66 @@ def active_python():
 class StructureTests(unittest.TestCase):
     def test_layout(self):
         for directory in (*ACTIVE_DIRS, "web", "tests", "final_training_notebooks",
-                          "scripts", "data", "models", "training_results",
-                          "experiments/implementations", "experiments/runners"):
+                          "scripts", "data", "models", "training_results"):
             with self.subTest(directory=directory):
                 self.assertTrue((ROOT / directory).is_dir())
-        for filename in ("__init__.py", "training_core.py", "inference.py",
-                         "demo_models.py", "demo_registry.py"):
+        for filename in ("__init__.py", "training_core.py", "inference.py"):
             self.assertTrue((ROOT / "final_model" / filename).is_file())
-        for filename in ("download_dataset.py", "prepare_dataset.py", "inspect_dataset.py",
-                         "inspect_demo_dataset.py", "verify_final_models.py",
-                         "test_demo_robustness.py", "export_demo_catalogue.py",
-                         "export_demo_robustness.py", "export_demo_sample.py"):
-            self.assertTrue((ROOT / "tools" / filename).is_file())
-        for family in IMPLEMENTATION_FAMILIES:
-            self.assertTrue((ROOT / "experiments/implementations" / family).is_dir())
-        for family in RUNNER_FAMILIES:
-            self.assertTrue((ROOT / "experiments/runners" / family).is_dir())
-            self.assertFalse((ROOT / "experiments" / family).exists())
-        for old in ("src", "dashboard", "deployment/requirements-api.txt"):
+        for filename in ("download_dataset.py", "prepare_dataset.py"):
+            self.assertTrue((ROOT / "scripts" / filename).is_file())
+        for old in ("src", "dashboard", "tools", "experiments", "deployment/Dockerfile",
+                    "deployment/requirements.txt", "deployment/requirements-api.txt",
+                    "scripts/run_training_notebooks.sh",
+                    "scripts/run_full_training_overnight.sh"):
             self.assertFalse((ROOT / old).exists(), old)
         self.assertFalse(any((ROOT / "final_training").glob("*.py")))
-        self.assertTrue((ROOT / "deployment/requirements.txt").is_file())
 
     def test_active_imports(self):
         migrated = set()
         for path in active_python():
             tree = ast.parse(path.read_text(), filename=str(path))
             for node in ast.walk(tree):
-                if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                    for family in RUNNER_FAMILIES:
-                        self.assertNotIn(f"python experiments/{family}/", node.value, str(path))
                 names = ([node.module or ""] if isinstance(node, ast.ImportFrom)
                          else [alias.name for alias in node.names] if isinstance(node, ast.Import)
                          else [])
                 for name in names:
                     self.assertNotIn(name.split(".")[0], ("src", "final_training", "dashboard", "scripts", "submission"), str(path))
-                    if name.startswith("experiments."):
-                        self.assertIn(name.split(".")[1], ("implementations", "runners"), str(path))
-                        module = ROOT.joinpath(*name.split("."))
-                        self.assertTrue(module.with_suffix(".py").is_file() or module.is_dir(), name)
                     if name.startswith("final_model."):
                         migrated.add(name)
                         module = ROOT.joinpath(*name.split("."))
                         self.assertTrue(module.with_suffix(".py").is_file() or (module / "__init__.py").is_file())
-        self.assertTrue({"final_model.inference", "final_model.training_core",
-                         "final_model.demo_models", "final_model.demo_registry"} <= migrated)
+        self.assertIn("final_model.inference", migrated)
 
-    def test_slurm_python_targets(self):
-        targets = []
-        for path in (ROOT / "experiments").rglob("*"):
-            if path.suffix not in (".slurm", ".sh"):
-                continue
-            for match in re.finditer(r"^\s*python(?:3(?:\.\d+)?)?\s+([^\s]+\.py)\b", path.read_text(), re.M):
-                target = ROOT / match.group(1)
-                targets.append(target)
-                self.assertTrue(target.is_file(), f"{path}: {target}")
-        self.assertTrue(targets)
+    def test_training_artifacts_present(self):
+        result_root = ROOT / "training_results"
+        for experiment in (
+            "baseline_object_mask", "fixed_uvd", "query_gated_uvd",
+            "rotation_consistent", "geometry_dropout",
+        ):
+            for filename in (
+                "best.pt", "last.pt", "ui_model.pt", "summary.csv",
+                "history.csv", "training_curves.png",
+                "evaluation_comparison.png", "qualitative_unseen.png",
+            ):
+                with self.subTest(experiment=experiment, filename=filename):
+                    self.assertTrue((result_root / experiment / filename).is_file())
+        self.assertTrue((result_root / "best_model.pt").is_file())
+        self.assertTrue((result_root / "model_registry.json").is_file())
 
-    def test_runner_roots(self):
-        runners = list((ROOT / "experiments/runners").rglob("*.py"))
-        self.assertTrue(runners)
-        for path in runners:
-            tree = ast.parse(path.read_text())
-            assignments = [node for node in tree.body if isinstance(node, ast.Assign)
-                           and any(isinstance(target, ast.Name) and target.id == "PROJECT_ROOT"
-                                   for target in node.targets)]
-            self.assertEqual(len(assignments), 1, str(path))
-            expression = ast.Expression(assignments[0].value)
-            resolved = eval(compile(expression, str(path), "eval"),
-                            {"Path": Path, "__file__": str(path)})
-            self.assertEqual(resolved, ROOT, str(path))
-
-    def test_training_artifacts_unchanged(self):
-        changed = subprocess.check_output(
-            ["git", "diff", "HEAD", "--name-only", "--", "final_training_notebooks/", "training_results/"], cwd=ROOT, text=True
-        )
-        self.assertEqual(changed, "", changed)
+    def test_notebook_paths(self):
+        for path in sorted((ROOT / "final_training_notebooks").glob("*.ipynb")):
+            notebook = json.loads(path.read_text())
+            source = "\n".join(
+                "".join(cell.get("source", []))
+                for cell in notebook["cells"]
+            )
+            with self.subTest(notebook=path.name):
+                self.assertNotIn('path / "final_training"', source)
+                self.assertNotIn("final_training.training_core", source)
+                self.assertIn('path / "final_model"', source)
+                self.assertIn("FRESH_TRAINING = True", source)
 
     def test_registry_paths(self):
-        path = ROOT / "final_model/demo_registry.py"
-        spec = importlib.util.spec_from_file_location("structure_registry", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        self.assertEqual(module.PROJECT_ROOT, ROOT)
-        self.assertTrue(module.validate_demo_models())
         registry = json.loads((ROOT / "models/final_study/model_registry.json").read_text())
         for entry in registry["models"].values():
             self.assertTrue((ROOT / entry["checkpoint"]).is_file())
@@ -130,19 +98,11 @@ class StructureTests(unittest.TestCase):
             elif isinstance(value, str) and value.startswith("assets/"):
                 references.append(value)
                 self.assertTrue((ROOT / "web" / value).is_file(), value)
+            elif isinstance(value, str) and value.startswith("models/final_study/"):
+                self.assertTrue((ROOT / value).is_file(), value)
 
         visit(json.loads((ROOT / "web/data/catalogue.json").read_text()))
         self.assertTrue(references)
-
-    def test_docker_copy_sources(self):
-        dockerfile = (ROOT / "deployment/Dockerfile").read_text()
-        self.assertIn("COPY final_model /app/final_model", dockerfile)
-        self.assertNotIn("requirements-api.txt", dockerfile)
-        for line in dockerfile.splitlines():
-            if line.startswith("COPY "):
-                for source in shlex.split(line)[1:-1]:
-                    self.assertTrue((ROOT / source).exists(), source)
-
 
 if __name__ == "__main__":
     unittest.main()

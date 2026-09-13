@@ -34,12 +34,10 @@ reuse the standard local caches automatically.
 
 ## Run locally
 
-From the repository root:
-
-```bash
-source .venv/bin/activate
-bash scripts/run_full_training_overnight.sh
-```
+Open Jupyter from the repository root and execute the notebooks manually in the
+listed order. Each experiment notebook defines `FRESH_TRAINING = True` near the
+top. Change it to `False` only when resuming an interrupted experiment from its
+last checkpoint.
 
 Checkpoints, numerical results, figures, and executed notebooks are kept
 together under `training_results/`.
@@ -48,8 +46,8 @@ Every experiment saves `training_curves.png`, `evaluation_comparison.png`, and
 `qualitative_unseen.png` alongside CSV/JSON metrics. Executed notebook copies
 are retained under `training_results/executed_notebooks/`.
 
-Completed experiments reuse their saved results. An interrupted experiment
-resumes from its last completed epoch.
+With `FRESH_TRAINING = False`, completed experiments reuse their saved results
+and interrupted experiments resume from their last completed epoch.
 
 ## Final model
 
@@ -66,7 +64,7 @@ compare them without retraining.
 The UI can load the selected checkpoint and predict at the original image size:
 
 ```python
-from final_training.inference import load_predictor
+from final_model.inference import load_predictor
 
 predictor = load_predictor("training_results/best_model.pt")
 probability = predictor.predict(rgb_uint8_chw, parent_mask_hw, "wheel")
