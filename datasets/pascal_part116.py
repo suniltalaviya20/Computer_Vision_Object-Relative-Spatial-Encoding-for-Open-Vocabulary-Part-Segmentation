@@ -51,7 +51,7 @@ class PascalPart116Dataset(Dataset):
             raise FileNotFoundError(
                 f"Manifest not found: "
                 f"{self.manifest_path}\n"
-                "Run python scripts/"
+                "Run python tools/"
                 "prepare_dataset.py first."
             )
 
@@ -185,7 +185,7 @@ class PascalPart116Dataset(Dataset):
                 f"image={image_shape}, "
                 f"objects="
                 f"{object_labels.shape}, "
-                f"parts="
+                f"parts=" 
                 f"{part_labels.shape}"
             )
 
@@ -344,3 +344,4 @@ class PascalPart116Dataset(Dataset):
             )
 
         return sample
+    

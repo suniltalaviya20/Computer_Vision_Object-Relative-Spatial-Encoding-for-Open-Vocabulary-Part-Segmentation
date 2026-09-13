@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <!-- Leave empty when the API serves this page. For a separately
+       hosted frontend, set content to the inference API origin. -->
+  <meta
+    name="part-segmentation-api"
+    content=""
+  >
+
+  <title>
+    Object-Relative Part Segmentation
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="styles.css?v=19"
+  >
+</head>
+
+
+<body>
+
+  <!-- =====================================================
+       HEADER
+       ===================================================== -->
+
+  <header class="site-header">
+
+    <div class="brand">
+
+      <div
+        class="brand-mark"
+        aria-hidden="true"
+      >
+        <i></i>
+        <i></i>
+        <i></i>
+        <i></i>
+      </div>
+
+      <div>
+        <strong>
+          Object-Relative Part Segmentation
+        </strong>
+
+        <span class="brand-subtitle">
+          Text-conditioned segmentation with spatial geometry
+        </span>
+      </div>
+
+    </div>
+
+
+    <div
+      class="status-badge"
+      id="status-badge"
+    >
+      <span></span>
+
+      <strong id="status-text">
+        Loading
+      </strong>
+    </div>
+
+  </header>
+
+
+
+  <!-- =====================================================
+       MAIN
+       ===================================================== -->
+
+  <main class="workspace">
+
+
+    <!-- ===================================================
+         INTRODUCTION
+         =================================================== -->
+
+    <section class="introduction">
+
+      <div>
+
+        <p class="eyebrow">
+          INTERACTIVE RESEARCH DEMO
+        </p>
+
+        <h1>
+          Inspect part predictions under
+          object-relative spatial conditioning
+        </h1>
+
+        <p class="lead">
+          Run the model on your own image or explore the
+          prepared research examples.
+        </p>
+
+      </div>
+
+
+    </section>
+
+
+
+    <!-- ===================================================
+         SETUP NOTICE
+         =================================================== -->
+
+    <div
+      class="setup-notice"
+      id="setup-notice"
+      hidden
+    >
+
+      <span class="notice-dot"></span>
+
+      <div>
+        <strong>
+          Demo data could not be loaded.
+        </strong>
+
+        Run the site through a local web server
+        rather than opening index.html directly.
+      </div>
+
+    </div>
+
+
+    <nav
+      class="demo-mode-switch"
+      aria-label="Choose demo mode"
+      role="tablist"
+    >
+      <button
+        class="demo-mode-tab is-active"
+        id="upload-mode-tab"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="upload-demo-panel"
+        data-demo-mode="upload"
+      >
+        <span>Try your image</span>
+        <small>Automatic mask + correction</small>
+      </button>
+
+      <button
+        class="demo-mode-tab"
+        id="catalogue-mode-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="catalogue-demo-panel"
+        data-demo-mode="catalogue"
+      >
+        <span>Explore saved results</span>
+        <small>111 examples + model comparison</small>
+      </button>
+    </nav>
+
+
+
+    <!-- ===================================================
+         USER IMAGE INFERENCE
+         =================================================== -->
+
+    <section
+      class="upload-lab"
+      id="upload-demo-panel"
+      role="tabpanel"
+      aria-labelledby="upload-mode-tab upload-lab-title"
+    >
+
+      <div class="upload-lab-heading">
+
+        <div>
+          <p class="eyebrow">TRY YOUR OWN IMAGE</p>
+
+          <h2 id="upload-lab-title">
+            Predict a part on a new object
+          </h2>
+
+          <p>
+            Upload an RGB image, predict its parent-object mask,
+            correct the mask with the brush, then choose a part.
+          </p>
+        </div>
+
+        <span
+          class="availability-badge is-checking"
+          id="upload-api-badge"
+        >
+          Checking inference API
+        </span>
+
+      </div>
+
+
+      <div class="upload-mode-row">
+
+        <label class="field upload-mode-field">
+          <span>Parent-object source</span>
+
+          <select id="upload-parent-source">
+            <option value="automatic">
+              Predict parent mask automatically
+            </option>
+
+            <option value="manual">
+              Upload parent mask manually
+            </option>
+          </select>
+        </label>
+
+        <p class="upload-mode-help">
+          Automatic mode suggests the object and mask. You can select
+          another detected object or correct the mask before prediction.
+        </p>
+
+      </div>
+
+
+      <div class="upload-input-grid">
+
+        <label class="upload-drop-zone" id="image-drop-zone">
+          <input
+            id="upload-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+          >
+
+          <span class="upload-step">1</span>
+          <strong>Upload RGB image</strong>
+          <span>PNG, JPEG or WebP · maximum 15 MB</span>
+          <em id="upload-image-name">No image selected</em>
+        </label>
+
+
+        <div class="automatic-parent-panel" id="automatic-parent-panel">
+
+          <span class="upload-step">2</span>
+
+          <div class="automatic-parent-copy">
+            <strong>Predict parent object</strong>
+            <span>Detect supported objects and create their masks</span>
+          </div>
+
+          <button
+            class="button secondary"
+            id="detect-parent-button"
+            type="button"
+            disabled
+          >
+            Predict parent mask
+          </button>
+
+          <label class="field detected-object-field" hidden>
+            <span>Detected object</span>
+            <select id="detected-object-select"></select>
+          </label>
+
+        </div>
+
+
+        <label
+          class="upload-drop-zone"
+          id="mask-drop-zone"
+          hidden
+        >
+          <input
+            id="upload-mask-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+          >
+
+          <span class="upload-step">2</span>
+          <strong>Upload parent mask</strong>
+          <span>White object on a black background</span>
+          <em id="upload-mask-name">No mask selected</em>
+        </label>
+
+      </div>
+
+
+      <div class="upload-controls">
+
+        <div class="field">
+          <span>Object category</span>
+          <input
+            id="upload-object-input"
+            type="text"
+            maxlength="80"
+            placeholder="Type to search 80 supported categories"
+            autocomplete="off"
+            aria-label="Object category"
+            aria-autocomplete="list"
+            aria-controls="upload-object-menu"
+            aria-expanded="false"
+          >
+
+          <div
+            class="autocomplete-menu"
+            id="upload-object-menu"
+            role="listbox"
+            hidden
+          ></div>
+        </div>
+
+        <div class="field">
+          <span>Requested part</span>
+          <input
+            id="upload-part-input"
+            type="text"
+            maxlength="80"
+            placeholder="Select an object, then type a part"
+            autocomplete="off"
+            aria-label="Requested part"
+            aria-autocomplete="list"
+            aria-controls="upload-part-menu"
+            aria-expanded="false"
+          >
+
+          <div
+            class="autocomplete-menu"
+            id="upload-part-menu"
+            role="listbox"
+            hidden
+          ></div>
+        </div>
+
+        <label class="field">
+          <span>Segmentation model</span>
+          <select id="upload-model-select" disabled>
+            <option>Loading models...</option>
+          </select>
+        </label>
+
+        <button
+          class="button upload-run-button"
+          id="upload-run-button"
+          type="button"
+          disabled
+        >
+          Run segmentation
+        </button>
+
+      </div>
+
+      <div
+        class="experimental-query-note"
+        id="experimental-query-note"
+        hidden
+      >
+        <strong>Experimental combination</strong>
+        This supported object-part pair was not part of the Pascal-Part-116 evaluation.
+      </div>
+
+
+      <div
+        class="upload-status"
+        id="upload-status"
+        role="status"
+        aria-live="polite"
+      >
+        Select an image and parent mask to begin.
+      </div>
+
+
+      <div class="upload-preview-grid">
+
+        <figure class="upload-preview-card">
+          <figcaption>Uploaded image</figcaption>
+          <div class="upload-preview-stage">
+            <img id="upload-image-preview" alt="Uploaded RGB image" hidden>
+            <span id="upload-image-empty">Image preview</span>
+          </div>
+        </figure>
+
+        <figure class="upload-preview-card mask-editor-card">
+
+          <figcaption class="mask-editor-heading">
+            <span>Parent mask editor</span>
+
+            <div class="mask-editor-tools">
+              <button
+                class="mask-tool is-active"
+                id="mask-add-tool"
+                type="button"
+                aria-pressed="true"
+                disabled
+              >Add</button>
+
+              <button
+                class="mask-tool"
+                id="mask-erase-tool"
+                type="button"
+                aria-pressed="false"
+                disabled
+              >Erase</button>
+
+              <label class="brush-size-field">
+                <span>Size</span>
+                <input
+                  id="mask-brush-size"
+                  type="range"
+                  min="4"
+                  max="80"
+                  value="24"
+                  disabled
+                >
+              </label>
+
+              <button class="mask-tool" id="mask-undo-button" type="button" disabled>
+                Undo
+              </button>
+
+              <button class="mask-tool" id="mask-reset-button" type="button" disabled>
+                Reset
+              </button>
+            </div>
+          </figcaption>
+
+          <div class="upload-preview-stage mask-editor-stage" id="mask-editor-stage">
+            <img id="mask-editor-image" alt="Image beneath the editable parent mask" hidden>
+            <canvas id="mask-editor-canvas" aria-label="Editable parent-object mask" hidden></canvas>
+            <span id="upload-mask-empty">Predict or upload a parent mask</span>
+          </div>
+
+          <p class="mask-editor-help">
+            Paint to add missing object pixels or switch to Erase to remove extras.
+          </p>
+
+        </figure>
+
+        <figure class="upload-preview-card result-card">
+          <figcaption>Part prediction</figcaption>
+          <div class="upload-preview-stage">
+            <img id="upload-result-preview" alt="Predicted part overlay" hidden>
+            <span id="upload-result-empty">Prediction will appear here</span>
+          </div>
+        </figure>
+
+      </div>
+
+    </section>
+
+
+    <div
+      class="catalogue-demo-panel"
+      id="catalogue-demo-panel"
+      role="tabpanel"
+      aria-labelledby="catalogue-mode-tab"
+      hidden
+    >
+
+
+    <!-- ===================================================
+         SAMPLE CONTROLS
+         =================================================== -->
+
+    <section
+      class="selection-bar"
+      aria-label="Example selection"
+    >
+
+
+      <!-- Object -->
+
+      <label class="field">
+
+        <span>
+          Object
+        </span>
+
+        <select
+          id="object-select"
+          disabled
+        >
+          <option>
+            Loading...
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- Part -->
+
+      <label class="field">
+
+        <span>
+          Part
+        </span>
+
+        <select
+          id="part-select"
+          disabled
+        >
+          <option>
+            Select object first
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- =================================================
+           ROBUSTNESS CONDITION
+           ================================================= -->
+
+      <label class="field">
+
+        <span>
+          Condition
+        </span>
+
+        <select
+          id="condition-select"
+          disabled
+        >
+          <option value="clean">
+            Clean
+          </option>
+        </select>
+
+      </label>
+
+
+
+      <!-- Another example -->
+
+      <button
+        class="button secondary random-button"
+        id="random-button"
+        type="button"
+        disabled
+      >
+        Another example
+      </button>
+
+
+
+      <!-- Current example -->
+
+      <div class="example-summary">
+
+        <span class="caption">
+          CURRENT EXAMPLE
+        </span>
+
+        <strong id="example-name">
+          —
+        </strong>
+
+        <span id="example-id">
+          No sample selected
+        </span>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         PERMANENT GROUND TRUTH
+         =================================================== -->
+
+    <section
+      class="ground-truth-section"
+      aria-labelledby="ground-truth-title"
+    >
+
+      <div class="ground-truth-heading">
+
+        <div>
+
+          <span class="section-label">
+            REFERENCE
+          </span>
+
+          <h2 id="ground-truth-title">
+            Ground truth
+          </h2>
+
+        </div>
+
+
+        <div class="ground-truth-meta">
+
+          <span class="caption">
+            SELECTED PART
+          </span>
+
+          <strong id="gt-preview-label">
+            No part selected
+          </strong>
+
+          <span id="gt-condition-label">
+            Dataset annotation
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="ground-truth-stage">
+
+        <img
+          id="gt-preview-image"
+          class="gt-preview-image"
+          alt="Ground-truth part overlay"
+          hidden
+        >
+
+        <div
+          class="gt-preview-empty"
+          id="gt-preview-empty"
+        >
+          Ground truth will appear here
+        </div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         VIEWER HEADING
+         =================================================== -->
+
+    <section class="viewer-heading">
+
+      <div>
+
+        <span class="section-label">
+          INSPECT MODEL
+        </span>
+
+        <span
+          class="sample-tag"
+          id="viewer-condition-tag"
+        >
+          Clean
+        </span>
+
+      </div>
+
+
+      <div class="viewer-actions">
+
+        <label
+          class="link-views"
+          id="link-views-container"
+          hidden
+        >
+
+          <input
+            id="link-views"
+            type="checkbox"
+            checked
+          >
+
+          Link views
+
+        </label>
+
+
+        <button
+          class="button secondary compare-button"
+          id="compare-button"
+          type="button"
+          aria-pressed="false"
+        >
+          Compare models
+        </button>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         MODEL VIEWERS
+         =================================================== -->
+
+    <section
+      class="viewer-grid"
+      id="viewer-grid"
+    >
+
+
+      <!-- =================================================
+           MODEL A
+           ================================================= -->
+
+      <article
+        class="viewer-card"
+        id="viewer-a"
+      >
+
+
+        <div class="card-controls">
+
+
+          <label class="field model-field">
+
+            <span>
+              Model
+            </span>
+
+            <select
+              class="model-select"
+              data-viewer="a"
+              disabled
+            >
+              <option>
+                Loading...
+              </option>
+            </select>
+
+          </label>
+
+
+
+          <label class="field view-field">
+
+            <span>
+              View
+            </span>
+
+            <select
+              class="view-select"
+              data-viewer="a"
+              disabled
+            >
+              <option>
+                Prediction overlay
+              </option>
+            </select>
+
+          </label>
+
+        </div>
+
+
+
+        <p
+          class="model-description"
+          data-description="a"
+        >
+          Select a sample to inspect the model.
+        </p>
+
+
+
+        <div class="image-stage">
+
+
+          <img
+            class="stage-image"
+            data-image="a"
+            alt="Model visualization"
+            hidden
+          >
+
+
+          <div
+            class="empty-state"
+            data-empty="a"
+          >
+
+            <div class="empty-icon">
+              ◫
+            </div>
+
+            <p class="empty-title">
+              Select an example
+            </p>
+
+            <p class="empty-description">
+              Choose an object and part to inspect
+              a segmentation result.
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="image-caption">
+
+          <span data-caption="a">
+            —
+          </span>
+
+          <span
+            class="coordinate-space"
+            data-space="a"
+          >
+            —
+          </span>
+
+        </div>
+
+
+
+        <!-- Metrics -->
+
+        <div class="metric-strip">
+
+
+          <div class="metric">
+
+            <span>
+              IoU ↑
+            </span>
+
+            <strong data-iou="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Dice ↑
+            </span>
+
+            <strong data-dice="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Leakage ↓
+            </span>
+
+            <strong data-leakage="a">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric-context">
+
+            <div data-query="a">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="a"
+            >
+              —
+            </div>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+      <!-- =================================================
+           MODEL B
+           ================================================= -->
+
+      <article
+        class="viewer-card"
+        id="viewer-b"
+        hidden
+      >
+
+
+        <div class="card-controls">
+
+
+          <label class="field model-field">
+
+            <span>
+              Model
+            </span>
+
+            <select
+              class="model-select"
+              data-viewer="b"
+              disabled
+            >
+              <option>
+                Loading...
+              </option>
+            </select>
+
+          </label>
+
+
+
+          <label class="field view-field">
+
+            <span>
+              View
+            </span>
+
+            <select
+              class="view-select"
+              data-viewer="b"
+              disabled
+            >
+              <option>
+                Prediction overlay
+              </option>
+            </select>
+
+          </label>
+
+        </div>
+
+
+
+        <p
+          class="model-description"
+          data-description="b"
+        >
+          Select a sample to inspect the model.
+        </p>
+
+
+
+        <div class="image-stage">
+
+
+          <img
+            class="stage-image"
+            data-image="b"
+            alt="Model comparison visualization"
+            hidden
+          >
+
+
+          <div
+            class="empty-state"
+            data-empty="b"
+          >
+
+            <div class="empty-icon">
+              ◫
+            </div>
+
+            <p class="empty-title">
+              Select an example
+            </p>
+
+            <p class="empty-description">
+              Choose an object and part to inspect
+              a segmentation result.
+            </p>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="image-caption">
+
+          <span data-caption="b">
+            —
+          </span>
+
+          <span
+            class="coordinate-space"
+            data-space="b"
+          >
+            —
+          </span>
+
+        </div>
+
+
+
+        <!-- Metrics -->
+
+        <div class="metric-strip">
+
+
+          <div class="metric">
+
+            <span>
+              IoU ↑
+            </span>
+
+            <strong data-iou="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Dice ↑
+            </span>
+
+            <strong data-dice="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric">
+
+            <span>
+              Leakage ↓
+            </span>
+
+            <strong data-leakage="b">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="metric-context">
+
+            <div data-query="b">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="b"
+            >
+              —
+            </div>
+
+          </div>
+
+        </div>
+
+      </article>
+
+    </section>
+
+
+
+    <!-- ===================================================
+         OPTIONAL COMPARISON SUMMARY
+         =================================================== -->
+
+    <div
+      class="comparison-summary"
+      id="comparison-summary"
+      hidden
+    >
+      Both panels use the same image, query and robustness
+      condition.
+    </div>
+
+
+
+    <!-- ===================================================
+         NOTE
+         =================================================== -->
+
+    <div class="quiet-note">
+
+      <span class="small-info">
+        i
+      </span>
+
+      <p>
+        U and V are coordinates relative to the selected
+        parent object. D is 2D distance to the parent-mask
+        boundary, not camera depth. Robustness conditions
+        rerun the model after modifying the input or supplied
+        parent mask.
+      </p>
+
+    </div>
+
+    </div>
+
+
+
+    <!-- ===================================================
+         FOOTER
+         =================================================== -->
+
+    <footer class="workspace-footer">
+
+      <span>
+        Text-conditioned object-relative part segmentation
+      </span>
+
+      <span>
+        Pascal-Part-116
+      </span>
+
+    </footer>
+
+  </main>
+
+
+
+  <!-- =====================================================
+       SCRIPT
+       ===================================================== -->
+
+  <script
+    src="app.js?v=19"
+    defer
+  ></script>
+
+</body>
+
+</html>

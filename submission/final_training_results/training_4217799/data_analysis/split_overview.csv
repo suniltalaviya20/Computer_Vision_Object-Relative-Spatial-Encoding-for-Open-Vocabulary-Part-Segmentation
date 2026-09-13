@@ -1,0 +1,5 @@
+split,queries,images,object_classes,part_queries
+train_seen,32698,5204,11,41
+validation_seen,3708,580,11,41
+test_seen,3371,597,11,41
+test_unseen,1586,268,5,25
