@@ -1,0 +1,33 @@
+{
+  "run_id": "training_4217799",
+  "selection_rule": "maximum validation_seen IoU; no test metric used for selection",
+  "selected_model": "rotation_consistent",
+  "selected_checkpoint": "training_results/best_model.pt",
+  "models": {
+    "baseline_object_mask": {
+      "checkpoint": "training_results/baseline_object_mask/ui_model.pt",
+      "validation_iou": 0.2813801040376628,
+      "selected_epoch": 14
+    },
+    "fixed_uvd": {
+      "checkpoint": "training_results/fixed_uvd/ui_model.pt",
+      "validation_iou": 0.2855239875349412,
+      "selected_epoch": 12
+    },
+    "query_gated_uvd": {
+      "checkpoint": "training_results/query_gated_uvd/ui_model.pt",
+      "validation_iou": 0.2837432776422048,
+      "selected_epoch": 12
+    },
+    "rotation_consistent": {
+      "checkpoint": "training_results/rotation_consistent/ui_model.pt",
+      "validation_iou": 0.2980733523878722,
+      "selected_epoch": 21
+    },
+    "geometry_dropout": {
+      "checkpoint": "training_results/geometry_dropout/ui_model.pt",
+      "validation_iou": 0.2870662058522762,
+      "selected_epoch": 15
+    }
+  }
+}
