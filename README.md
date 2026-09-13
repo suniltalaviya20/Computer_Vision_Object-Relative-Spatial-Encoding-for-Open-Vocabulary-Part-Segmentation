@@ -28,7 +28,7 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 ├── tools/                       # operational project utilities
 ├── tests/                       # lightweight structural checks
 ├── outputs/                     # generated experiment results
-├── inference_server.py          # inference API entry point
+├── deployment/                 # API and deployment configuration
 ├── requirements.txt             # project dependencies
 ├── README.md
 └── web/                         # static browser demo
@@ -126,7 +126,7 @@ On later runs, activate the existing environment and start the application:
 
 ```bash
 source .venv/bin/activate
-uvicorn inference_server:app --reload --host 127.0.0.1 --port 8000
+uvicorn deployment.inference_server:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Keep that terminal open. Wait until it prints:

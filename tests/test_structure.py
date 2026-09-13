@@ -19,7 +19,7 @@ RUNNER_FAMILIES = ("analysis", "feature_extraction", "baseline_segmentation", "g
 
 
 def active_python():
-    yield ROOT / "inference_server.py"
+    yield ROOT / "deployment" / "inference_server.py"
     for directory in ACTIVE_DIRS:
         yield from (ROOT / directory).rglob("*.py")
 

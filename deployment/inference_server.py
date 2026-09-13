@@ -27,7 +27,7 @@ from datasets.metadata import PARTS_BY_OBJECT
 from final_model.inference import UIPredictor, load_predictor
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = PROJECT_ROOT / "web"
 REGISTRY_PATH = PROJECT_ROOT / "models" / "final_study" / "model_registry.json"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
