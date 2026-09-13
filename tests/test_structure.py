@@ -6,11 +6,16 @@ import json
 from pathlib import Path
 import re
 import shlex
+import subprocess
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ACTIVE_DIRS = ("final_model", "tools", "src", "datasets", "experiments", "deployment")
+ACTIVE_DIRS = ("final_model", "tools", "datasets", "experiments", "deployment")
+IMPLEMENTATION_FAMILIES = ("features", "baseline_segmentation", "geometry_comparison",
+                           "part_query_alignment", "object_centric_zoom", "query_gated_uvd", "robustness")
+RUNNER_FAMILIES = ("analysis", "feature_extraction", "baseline_segmentation", "geometry_comparison",
+                   "part_query_alignment", "object_centric_zoom", "query_gated_uvd", "robustness", "crop_alignment_uvd")
 
 
 def active_python():
@@ -23,7 +28,7 @@ class StructureTests(unittest.TestCase):
     def test_layout(self):
         for directory in (*ACTIVE_DIRS, "web", "tests", "submission/final_training",
                           "submission/scripts", "data", "models", "outputs",
-                          "experiments/feature_extraction", "experiments/crop_alignment_uvd"):
+                          "experiments/implementations", "experiments/runners"):
             with self.subTest(directory=directory):
                 self.assertTrue((ROOT / directory).is_dir())
         for filename in ("__init__.py", "training_core.py", "inference.py",
@@ -34,7 +39,12 @@ class StructureTests(unittest.TestCase):
                          "test_demo_robustness.py", "export_demo_catalogue.py",
                          "export_demo_robustness.py", "export_demo_sample.py"):
             self.assertTrue((ROOT / "tools" / filename).is_file())
-        for old in ("final_training", "scripts", "dashboard", "deployment/requirements-api.txt"):
+        for family in IMPLEMENTATION_FAMILIES:
+            self.assertTrue((ROOT / "experiments/implementations" / family).is_dir())
+        for family in RUNNER_FAMILIES:
+            self.assertTrue((ROOT / "experiments/runners" / family).is_dir())
+            self.assertFalse((ROOT / "experiments" / family).exists())
+        for old in ("src", "final_training", "scripts", "dashboard", "deployment/requirements-api.txt"):
             self.assertFalse((ROOT / old).exists(), old)
         self.assertTrue((ROOT / "deployment/requirements.txt").is_file())
 
@@ -43,11 +53,18 @@ class StructureTests(unittest.TestCase):
         for path in active_python():
             tree = ast.parse(path.read_text(), filename=str(path))
             for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    for family in RUNNER_FAMILIES:
+                        self.assertNotIn(f"python experiments/{family}/", node.value, str(path))
                 names = ([node.module or ""] if isinstance(node, ast.ImportFrom)
                          else [alias.name for alias in node.names] if isinstance(node, ast.Import)
                          else [])
                 for name in names:
-                    self.assertNotIn(name.split(".")[0], ("final_training", "dashboard", "scripts", "submission"), str(path))
+                    self.assertNotIn(name.split(".")[0], ("src", "final_training", "dashboard", "scripts", "submission"), str(path))
+                    if name.startswith("experiments."):
+                        self.assertIn(name.split(".")[1], ("implementations", "runners"), str(path))
+                        module = ROOT.joinpath(*name.split("."))
+                        self.assertTrue(module.with_suffix(".py").is_file() or module.is_dir(), name)
                     if name.startswith("final_model."):
                         migrated.add(name)
                         module = ROOT.joinpath(*name.split("."))
@@ -65,6 +82,26 @@ class StructureTests(unittest.TestCase):
                 targets.append(target)
                 self.assertTrue(target.is_file(), f"{path}: {target}")
         self.assertTrue(targets)
+
+    def test_runner_roots(self):
+        runners = list((ROOT / "experiments/runners").rglob("*.py"))
+        self.assertTrue(runners)
+        for path in runners:
+            tree = ast.parse(path.read_text())
+            assignments = [node for node in tree.body if isinstance(node, ast.Assign)
+                           and any(isinstance(target, ast.Name) and target.id == "PROJECT_ROOT"
+                                   for target in node.targets)]
+            self.assertEqual(len(assignments), 1, str(path))
+            expression = ast.Expression(assignments[0].value)
+            resolved = eval(compile(expression, str(path), "eval"),
+                            {"Path": Path, "__file__": str(path)})
+            self.assertEqual(resolved, ROOT, str(path))
+
+    def test_submission_unchanged(self):
+        changed = subprocess.check_output(
+            ["git", "diff", "HEAD", "--name-only", "--", "submission/"], cwd=ROOT, text=True
+        )
+        self.assertEqual(changed, "", changed)
 
     def test_registry_paths(self):
         path = ROOT / "final_model/demo_registry.py"

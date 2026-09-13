@@ -14,17 +14,18 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 ```text
 .
 ├── data/                        # Pascal-Part-116 (not committed)
-├── datasets/                    # dataset and robustness loaders
+├── datasets/                    # dataset loaders
 ├── deployment/                  # API configuration, Dockerfile, runtime dependencies
-├── experiments/                 # research training and evaluation runners
-├── final_model/                 # final-study architecture, inference, and demo registry
+├── experiments/
+│   ├── implementations/         # reusable implementations for research experiments
+│   └── runners/                 # train/evaluate/analyse entry points and Slurm workflows
+├── final_model/                 # consolidated final model training/inference and demo registry
 ├── models/final_study/          # active deployment checkpoints and registry
-├── submission/
+├── submission/                  # frozen grading/reproducibility package
 │   ├── final_training_notebooks/ # reproducible training notebooks
 │   ├── final_training_results/   # metrics, plots, logs, executed notebooks
 │   └── trained_points/           # original training/resume artifacts
-├── tools/                       # data, validation, and web export commands
-├── src/                         # reusable experimental implementations
+├── tools/                       # operational project utilities
 ├── tests/                       # lightweight structural checks
 ├── outputs/                     # generated experiment results
 ├── inference_server.py          # inference API entry point
