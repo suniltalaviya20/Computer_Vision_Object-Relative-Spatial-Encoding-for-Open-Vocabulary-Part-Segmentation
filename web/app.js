@@ -3001,9 +3001,16 @@ function showToast(message) {
 // USER IMAGE INFERENCE
 // ============================================================
 
+const API_BASE_URL = (
+  document.querySelector(
+    'meta[name="part-segmentation-api"]'
+  )?.content || ""
+).trim().replace(/\/$/, "");
+
+
 function inferenceURL(path) {
 
-  return path;
+  return `${API_BASE_URL}${path}`;
 
 }
 
