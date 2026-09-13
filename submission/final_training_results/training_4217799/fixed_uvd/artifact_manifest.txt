@@ -1,0 +1,11 @@
+final_training_results/training_4217799/fixed_uvd/completion.json
+final_training_results/training_4217799/fixed_uvd/config.json
+final_training_results/training_4217799/fixed_uvd/detailed_predictions.csv
+final_training_results/training_4217799/fixed_uvd/history.csv
+final_training_results/training_4217799/fixed_uvd/history.json
+final_training_results/training_4217799/fixed_uvd/qualitative_unseen.png
+final_training_results/training_4217799/fixed_uvd/summary.csv
+final_training_results/training_4217799/fixed_uvd/training_curves.png
+trained_points/training_4217799/fixed_uvd/best.pt
+trained_points/training_4217799/fixed_uvd/last.pt
+trained_points/training_4217799/fixed_uvd/ui_model.pt

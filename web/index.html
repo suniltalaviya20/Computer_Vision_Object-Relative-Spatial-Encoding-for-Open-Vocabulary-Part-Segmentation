@@ -9,13 +9,20 @@
     content="width=device-width, initial-scale=1.0"
   >
 
+  <!-- Leave empty when the API serves this page. For a separately
+       hosted frontend, set content to the inference API origin. -->
+  <meta
+    name="part-segmentation-api"
+    content=""
+  >
+
   <title>
     Object-Relative Part Segmentation
   </title>
 
   <link
     rel="stylesheet"
-    href="styles.css?v=27"
+    href="styles.css?v=19"
   >
 </head>
 
@@ -27,22 +34,82 @@
        ===================================================== -->
 
   <header class="site-header">
+
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">
-        <i></i><i></i><i></i><i></i>
+
+      <div
+        class="brand-mark"
+        aria-hidden="true"
+      >
+        <i></i>
+        <i></i>
+        <i></i>
+        <i></i>
       </div>
+
       <div>
-        <strong>Object-Relative Part Segmentation</strong>
-        <span class="brand-subtitle">Text-conditioned segmentation with spatial geometry</span>
+        <strong>
+          Object-Relative Part Segmentation
+        </strong>
+
+        <span class="brand-subtitle">
+          Text-conditioned segmentation with spatial geometry
+        </span>
       </div>
+
     </div>
+
+
+    <div
+      class="status-badge"
+      id="status-badge"
+    >
+      <span></span>
+
+      <strong id="status-text">
+        Loading
+      </strong>
+    </div>
+
   </header>
+
+
 
   <!-- =====================================================
        MAIN
        ===================================================== -->
 
   <main class="workspace">
+
+
+    <!-- ===================================================
+         INTRODUCTION
+         =================================================== -->
+
+    <section class="introduction">
+
+      <div>
+
+        <p class="eyebrow">
+          INTERACTIVE RESEARCH DEMO
+        </p>
+
+        <h1>
+          Inspect part predictions under
+          object-relative spatial conditioning
+        </h1>
+
+        <p class="lead">
+          Run the model on your own image or explore the
+          prepared research examples.
+        </p>
+
+      </div>
+
+
+    </section>
+
+
 
     <!-- ===================================================
          SETUP NOTICE
@@ -75,28 +142,28 @@
     >
       <button
         class="demo-mode-tab is-active"
-        id="catalogue-mode-tab"
-        type="button"
-        role="tab"
-        aria-selected="true"
-        aria-controls="catalogue-demo-panel"
-        data-demo-mode="catalogue"
-      >
-        <span>Explore saved results</span>
-        <small>111 examples + model comparison</small>
-      </button>
-
-      <button
-        class="demo-mode-tab"
         id="upload-mode-tab"
         type="button"
         role="tab"
-        aria-selected="false"
+        aria-selected="true"
         aria-controls="upload-demo-panel"
         data-demo-mode="upload"
       >
         <span>Try your image</span>
         <small>Automatic mask + correction</small>
+      </button>
+
+      <button
+        class="demo-mode-tab"
+        id="catalogue-mode-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="catalogue-demo-panel"
+        data-demo-mode="catalogue"
+      >
+        <span>Explore saved results</span>
+        <small>111 examples + model comparison</small>
       </button>
     </nav>
 
@@ -111,7 +178,6 @@
       id="upload-demo-panel"
       role="tabpanel"
       aria-labelledby="upload-mode-tab upload-lab-title"
-      hidden
     >
 
       <div class="upload-lab-heading">
@@ -393,10 +459,8 @@
       id="catalogue-demo-panel"
       role="tabpanel"
       aria-labelledby="catalogue-mode-tab"
+      hidden
     >
-
-
-    <div class="catalogue-overview-grid">
 
 
     <!-- ===================================================
@@ -407,22 +471,6 @@
       class="selection-bar"
       aria-label="Example selection"
     >
-
-
-      <!-- Evaluation split -->
-
-      <label class="field">
-
-        <span>
-          Evaluation set
-        </span>
-
-        <select id="split-select">
-          <option value="test_seen">Seen examples</option>
-          <option value="test_unseen">Unseen examples</option>
-        </select>
-
-      </label>
 
 
       <!-- Object -->
@@ -507,13 +555,17 @@
 
       <div class="example-summary">
 
-        <span class="caption" id="example-split-label">
+        <span class="caption">
           CURRENT EXAMPLE
         </span>
 
         <strong id="example-name">
           —
         </strong>
+
+        <span id="example-id">
+          No sample selected
+        </span>
 
       </div>
 
@@ -585,9 +637,6 @@
     </section>
 
 
-    </div>
-
-
 
     <!-- ===================================================
          VIEWER HEADING
@@ -612,13 +661,31 @@
 
 
       <div class="viewer-actions">
+
+        <label
+          class="link-views"
+          id="link-views-container"
+          hidden
+        >
+
+          <input
+            id="link-views"
+            type="checkbox"
+            checked
+          >
+
+          Link views
+
+        </label>
+
+
         <button
           class="button secondary compare-button"
           id="compare-button"
           type="button"
-          aria-pressed="true"
+          aria-pressed="false"
         >
-          Exit comparison
+          Compare models
         </button>
 
       </div>
@@ -632,7 +699,7 @@
          =================================================== -->
 
     <section
-      class="viewer-grid comparing"
+      class="viewer-grid"
       id="viewer-grid"
     >
 
@@ -698,13 +765,6 @@
         >
           Select a sample to inspect the model.
         </p>
-
-
-        <div class="split-performance" data-split-performance="a">
-          <span data-split-label="a">Seen catalogue</span>
-          <strong data-split-iou="a">Mean IoU —</strong>
-          <em data-split-delta="a">—</em>
-        </div>
 
 
 
@@ -804,6 +864,21 @@
           </div>
 
 
+          <div class="metric-context">
+
+            <div data-query="a">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="a"
+            >
+              —
+            </div>
+
+          </div>
+
         </div>
 
       </article>
@@ -817,6 +892,7 @@
       <article
         class="viewer-card"
         id="viewer-b"
+        hidden
       >
 
 
@@ -871,13 +947,6 @@
         >
           Select a sample to inspect the model.
         </p>
-
-
-        <div class="split-performance" data-split-performance="b">
-          <span data-split-label="b">Seen catalogue</span>
-          <strong data-split-iou="b">Mean IoU —</strong>
-          <em data-split-delta="b">—</em>
-        </div>
 
 
 
@@ -977,6 +1046,21 @@
           </div>
 
 
+          <div class="metric-context">
+
+            <div data-query="b">
+              —
+            </div>
+
+            <div
+              class="metric-context-detail"
+              data-checkpoint="b"
+            >
+              —
+            </div>
+
+          </div>
+
         </div>
 
       </article>
@@ -992,6 +1076,7 @@
     <div
       class="comparison-summary"
       id="comparison-summary"
+      hidden
     >
       Both panels use the same image, query and robustness
       condition.
@@ -1048,7 +1133,7 @@
        ===================================================== -->
 
   <script
-    src="app.js?v=28"
+    src="app.js?v=19"
     defer
   ></script>
 

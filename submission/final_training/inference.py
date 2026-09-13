@@ -8,7 +8,6 @@ from pathlib import Path
 import open_clip
 import torch
 import torch.nn.functional as F
-from torch.torch_version import TorchVersion
 
 from .training_core import (
     PROJECT_ROOT,
@@ -27,8 +26,7 @@ class UIPredictor:
 
     def __init__(self, checkpoint_path: str | Path, device: str | None = None) -> None:
         self.device = torch.device(device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
-        with torch.serialization.safe_globals([TorchVersion]):
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         if checkpoint.get("format_version") != 1 or "model_state" not in checkpoint:
             raise RuntimeError("Unsupported UI checkpoint format")
         names = {field.name for field in fields(TrainingConfig)}
@@ -37,20 +35,13 @@ class UIPredictor:
 
         dino_repository = PROJECT_ROOT / "dinov2"
         dino_weights = PROJECT_ROOT / checkpoint["config"]["dino_checkpoint"]
-        if dino_repository.is_dir() and dino_weights.is_file():
-            stale = [name for name in sys.modules if name == "dinov2" or name.startswith("dinov2.")]
-            for name in sorted(stale, reverse=True):
-                del sys.modules[name]
-            dino = torch.hub.load(
-                str(dino_repository), "dinov2_vits14", source="local", pretrained=False
-            )
-            state = torch.load(dino_weights, map_location="cpu", weights_only=True)
-            state = state.get("model", state) if isinstance(state, dict) else state
-            dino.load_state_dict(
-                {key.removeprefix("module."): value for key, value in state.items()}, strict=True
-            )
-        else:
-            dino = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14")
+        stale = [name for name in sys.modules if name == "dinov2" or name.startswith("dinov2.")]
+        for name in sorted(stale, reverse=True):
+            del sys.modules[name]
+        dino = torch.hub.load(str(dino_repository), "dinov2_vits14", source="local", pretrained=False)
+        state = torch.load(dino_weights, map_location="cpu", weights_only=True)
+        state = state.get("model", state) if isinstance(state, dict) else state
+        dino.load_state_dict({key.removeprefix("module."): value for key, value in state.items()}, strict=True)
         dino = dino.to(self.device).eval()
         for parameter in dino.parameters():
             parameter.requires_grad = False
@@ -63,15 +54,8 @@ class UIPredictor:
         self.model.eval()
 
         clip_path = PROJECT_ROOT / checkpoint["config"]["clip_checkpoint"]
-        if clip_path.is_file():
-            clip, _, _ = open_clip.create_model_and_transforms(
-                "ViT-B-32-quickgelu", pretrained=None
-            )
-            open_clip.load_checkpoint(clip, str(clip_path), strict=True, weights_only=True)
-        else:
-            clip, _, _ = open_clip.create_model_and_transforms(
-                "ViT-B-32-quickgelu", pretrained="openai"
-            )
+        clip, _, _ = open_clip.create_model_and_transforms("ViT-B-32-quickgelu", pretrained=None)
+        open_clip.load_checkpoint(clip, str(clip_path), strict=True, weights_only=False)
         clip = clip.to(self.device).eval()
         for parameter in clip.parameters():
             parameter.requires_grad = False

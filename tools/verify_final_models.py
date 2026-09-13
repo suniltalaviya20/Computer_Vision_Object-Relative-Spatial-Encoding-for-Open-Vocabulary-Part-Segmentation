@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate final-study local-UI checkpoints without loading the encoders."""
+"""Validate final-study deployment checkpoints without loading the encoders."""
 
 import hashlib
 import json
@@ -54,7 +54,7 @@ def main():
     if errors:
         raise SystemExit("\n".join(f"ERROR  {error}" for error in errors))
     print(f"\nSelected model: {registry['selected_model']}")
-    print("All local-UI checkpoints are valid.")
+    print("All deployment checkpoints are valid.")
 
 
 if __name__ == "__main__":

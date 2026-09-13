@@ -1,9 +1,0 @@
-{
-  "experiment": "baseline_object_mask",
-  "status": "trained",
-  "stop_reason": "early_stopping_validation_iou_plateau",
-  "epochs_completed": 16,
-  "selected_epoch": 14,
-  "best_validation_iou": 0.2813801040376628,
-  "checkpoint": "training_results/baseline_object_mask/best.pt"
-}

@@ -1,0 +1,14 @@
+jupyter
+ipykernel
+numpy
+pandas
+matplotlib
+seaborn
+Pillow
+gdown
+torch
+torchvision
+open_clip_torch
+scipy
+tqdm
+pytest
