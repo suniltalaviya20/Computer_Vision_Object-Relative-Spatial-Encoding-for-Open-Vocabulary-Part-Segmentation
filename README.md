@@ -104,6 +104,38 @@ Open <http://127.0.0.1:8000/> and stop the server with `Ctrl+C`.
 
 ## Run the website with user-image inference
 
+### Local quick start
+
+Open a terminal in the project root. Create the virtual environment only if it
+does not already exist, then install the dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On later runs, activate the existing environment and start the application:
+
+```bash
+source .venv/bin/activate
+uvicorn inference_server:app --reload --host 127.0.0.1 --port 8000
+```
+
+Keep that terminal open. Wait until it prints:
+
+```text
+Uvicorn running on http://127.0.0.1:8000
+```
+
+Then open <http://127.0.0.1:8000/> in the browser. Use `http`, not `https`.
+If an older page is cached, press `Ctrl+Shift+R`. Stop the application by
+pressing `Ctrl+C` in the terminal.
+
+Do not start the separate `python -m http.server` command at the same time on
+port 8000. The Uvicorn application serves both the webpage and inference API.
+
 The upload flow supports:
 
 - an RGB image;
@@ -117,18 +149,9 @@ The upload flow supports:
   part-query vocabulary for qualitative open-vocabulary testing;
 - one of the five final-study models.
 
-Start the combined API and website from the repository root:
-
-```bash
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-uvicorn inference_server:app --reload --host 127.0.0.1 --port 8000
-```
-
-Open <http://127.0.0.1:8000/>. The first parent prediction can take longer while
-the Torchvision Mask R-CNN weights are downloaded and loaded. The first part
-prediction similarly loads DINOv2 and OpenCLIP; later requests reuse the loaded
-models. Stop the server with `Ctrl+C`.
+The first parent prediction can take longer while the Torchvision Mask R-CNN
+weights are downloaded and loaded. The first part prediction similarly loads
+DINOv2 and OpenCLIP; later requests reuse the loaded models.
 
 The API provides:
 
