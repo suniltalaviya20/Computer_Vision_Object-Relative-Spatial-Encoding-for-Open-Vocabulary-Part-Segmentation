@@ -6,13 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY deployment/requirements-api.txt /app/deployment/requirements-api.txt
+COPY deployment/requirements.txt /app/deployment/requirements.txt
 RUN python -m pip install --upgrade pip \
-    && python -m pip install -r /app/deployment/requirements-api.txt
+    && python -m pip install -r /app/deployment/requirements.txt
 
 COPY datasets /app/datasets
 COPY deployment /app/deployment
-COPY final_training /app/final_training
+COPY final_model /app/final_model
 COPY models/final_study /app/models/final_study
 COPY web /app/web
 COPY inference_server.py /app/inference_server.py

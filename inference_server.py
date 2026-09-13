@@ -24,7 +24,7 @@ from deployment.inference_options import (
     suggested_parts_for_parent,
 )
 from datasets.metadata import PARTS_BY_OBJECT
-from final_training.inference import UIPredictor, load_predictor
+from final_model.inference import UIPredictor, load_predictor
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent

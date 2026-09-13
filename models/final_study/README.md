@@ -14,7 +14,7 @@ Only deployment checkpoints are stored here:
 
 The run ID is recorded in `model_registry.json`; because this is the only active
 final run, its files are kept directly in this folder without another run-ID
-directory. The dashboard registry in `dashboard/utils/demo_registry.py` is the source of
+directory. The dashboard registry in `final_model/demo_registry.py` is the source of
 truth for UI names and checkpoint paths. Training-resume checkpoints, reports,
 logs, and executed notebooks remain in the professor submission folder and are
 not duplicated here.

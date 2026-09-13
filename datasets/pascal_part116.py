@@ -51,7 +51,7 @@ class PascalPart116Dataset(Dataset):
             raise FileNotFoundError(
                 f"Manifest not found: "
                 f"{self.manifest_path}\n"
-                "Run python scripts/"
+                "Run python tools/"
                 "prepare_dataset.py first."
             )
 

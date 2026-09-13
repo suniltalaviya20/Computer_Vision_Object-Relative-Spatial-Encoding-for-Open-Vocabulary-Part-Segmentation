@@ -927,7 +927,7 @@ def main() -> None:
         print()
         print("Then inspect a sample:")
         print(
-            "python scripts/"
+            "python tools/"
             "inspect_dataset.py "
             "--split train"
         )
@@ -936,7 +936,7 @@ def main() -> None:
             "Use --force to regenerate:"
         )
         print(
-            "python scripts/"
+            "python tools/"
             "prepare_dataset.py --force"
         )
         return
@@ -1212,7 +1212,7 @@ def main() -> None:
     print()
     print("Next command:")
     print(
-        "python scripts/"
+        "python tools/"
         "inspect_dataset.py "
         "--split train"
     )

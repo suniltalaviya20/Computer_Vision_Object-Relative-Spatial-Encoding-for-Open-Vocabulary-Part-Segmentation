@@ -13,18 +13,23 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 
 ```text
 .
-├── dashboard/utils/             # model registry and demo inference
 ├── data/                        # Pascal-Part-116 (not committed)
 ├── datasets/                    # dataset and robustness loaders
 ├── deployment/                  # API configuration, Dockerfile, runtime dependencies
-├── final_training/              # exact final-study architecture and inference
+├── experiments/                 # research training and evaluation runners
+├── final_model/                 # final-study architecture, inference, and demo registry
 ├── models/final_study/          # active deployment checkpoints and registry
 ├── submission/
 │   ├── final_training_notebooks/ # reproducible training notebooks
 │   ├── final_training_results/   # metrics, plots, logs, executed notebooks
 │   └── trained_points/           # original training/resume artifacts
-├── scripts/                     # data, validation, and web export commands
-├── src/                         # earlier model and geometry components
+├── tools/                       # data, validation, and web export commands
+├── src/                         # reusable experimental implementations
+├── tests/                       # lightweight structural checks
+├── outputs/                     # generated experiment results
+├── inference_server.py          # inference API entry point
+├── requirements.txt             # project dependencies
+├── README.md
 └── web/                         # static browser demo
 ```
 
@@ -69,7 +74,7 @@ Validate the copied deployment artifacts without loading the large encoders:
 
 ```bash
 source .venv/bin/activate
-python scripts/verify_final_models.py
+python tools/verify_final_models.py
 ```
 
 ## Dataset
@@ -78,8 +83,8 @@ Download and prepare Pascal-Part-116:
 
 ```bash
 source .venv/bin/activate
-python scripts/download_dataset.py
-python scripts/prepare_dataset.py
+python tools/download_dataset.py
+python tools/prepare_dataset.py
 ```
 
 Expected locations:
@@ -199,21 +204,21 @@ segmentation heads under `models/final_study/` are already included. Do not use
 
 ## Rebuild website predictions
 
-The registry at `dashboard/utils/demo_registry.py` is the single source of truth
+The registry at `final_model/demo_registry.py` is the single source of truth
 for the five model names and checkpoint paths.
 
 Quickly test real inference first:
 
 ```bash
 source .venv/bin/activate
-python scripts/test_demo_robustness.py
+python tools/test_demo_robustness.py
 ```
 
 Then export the clean catalogue and six robustness conditions:
 
 ```bash
-python scripts/export_demo_catalogue.py
-python scripts/export_demo_robustness.py
+python tools/export_demo_catalogue.py
+python tools/export_demo_robustness.py
 ```
 
 The export creates the 111-example static demo under:
@@ -229,7 +234,7 @@ For a new image, supply a `uint8` RGB tensor shaped `[3, H, W]`, a binary
 parent mask shaped `[H, W]`, and a text query:
 
 ```python
-from final_training.inference import load_predictor
+from final_model.inference import load_predictor
 
 predictor = load_predictor(
     "models/final_study/best_model.pt"

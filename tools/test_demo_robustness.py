@@ -28,12 +28,12 @@ from datasets.object_centric_robustness_dataset import (
     DEMO_ROBUSTNESS_CONDITIONS,
 )
 
-from dashboard.utils.demo_registry import (
+from final_model.demo_registry import (
     get_demo_models,
     validate_demo_models,
 )
 
-from dashboard.utils.models import (
+from final_model.demo_models import (
     predict_sample,
 )
 
