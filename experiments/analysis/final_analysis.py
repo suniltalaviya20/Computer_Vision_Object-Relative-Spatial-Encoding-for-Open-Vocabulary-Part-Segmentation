@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BASELINE_ROOT = (
     PROJECT_ROOT
     / "outputs"
-    / "baseline"
+    / "experiments"
 )
 
 
@@ -24,7 +24,8 @@ GEOMETRY_ROOT = (
 ALIGNMENT_ROOT = (
     PROJECT_ROOT
     / "outputs"
-    / "alignment"
+    / "experiments"
+    / "part_query_alignment"
 )
 
 

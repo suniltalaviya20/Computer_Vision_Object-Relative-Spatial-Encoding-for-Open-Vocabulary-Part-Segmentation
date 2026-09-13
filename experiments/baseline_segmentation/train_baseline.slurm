@@ -13,7 +13,7 @@ unset SLURM_EXPORT_ENV
 set -e
 
 
-cd "$HOME/Computer_Vision_Object-Relative-Spatial-Encoding-for-Open-Vocabulary-Part-Segmentation"
+cd "$SLURM_SUBMIT_DIR"
 
 
 module load python/3.12-base

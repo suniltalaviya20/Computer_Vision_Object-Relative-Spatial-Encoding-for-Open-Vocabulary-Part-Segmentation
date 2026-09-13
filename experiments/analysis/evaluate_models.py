@@ -66,7 +66,7 @@ EXPERIMENTS = [
         "checkpoint":
             PROJECT_ROOT
             / "outputs"
-            / "baseline"
+            / "experiments"
             / "part_only"
             / "best.pt",
     },
@@ -84,7 +84,7 @@ EXPERIMENTS = [
         "checkpoint":
             PROJECT_ROOT
             / "outputs"
-            / "baseline"
+            / "experiments"
             / "object_mask"
             / "best.pt",
     },
@@ -156,7 +156,8 @@ EXPERIMENTS = [
         "checkpoint":
             PROJECT_ROOT
             / "outputs"
-            / "alignment"
+            / "experiments"
+            / "part_query_alignment"
             / "mask_baseline"
             / "best.pt",
     },
@@ -174,7 +175,8 @@ EXPERIMENTS = [
         "checkpoint":
             PROJECT_ROOT
             / "outputs"
-            / "alignment"
+            / "experiments"
+            / "part_query_alignment"
             / "alignment_mask"
             / "best.pt",
     },
@@ -192,7 +194,8 @@ EXPERIMENTS = [
         "checkpoint":
             PROJECT_ROOT
             / "outputs"
-            / "alignment"
+            / "experiments"
+            / "part_query_alignment"
             / "alignment_relative_uv"
             / "best.pt",
     },
