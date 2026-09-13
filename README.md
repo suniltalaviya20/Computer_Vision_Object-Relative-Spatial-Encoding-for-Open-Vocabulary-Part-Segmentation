@@ -249,18 +249,7 @@ V, and D are computed relative to that mask.
 
 ## Reproducing training
 
-The source notebooks are in `final_training_notebooks/`. Existing metrics,
-plots, executed notebooks, inference files, and resume checkpoints are
-together in `training_results/`.
-
-Run the complete notebook sequence locally from the repository root:
-
-```bash
-source .venv/bin/activate
-bash scripts/run_full_training_overnight.sh
-```
-
-The workflow executes these notebooks in order:
+The full GPU training workflow remains in:
 
 ```text
 submission/

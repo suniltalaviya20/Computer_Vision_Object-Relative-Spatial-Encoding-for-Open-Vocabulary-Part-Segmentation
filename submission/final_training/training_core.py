@@ -389,7 +389,7 @@ class TrainingRuntime:
         self.config = config
         seed_everything(config.seed)
         if not torch.cuda.is_available():
-            raise RuntimeError("Full training requires CUDA. From submission/, run sbatch scripts/submit_full_training_fau.slurm")
+            raise RuntimeError("Full training requires CUDA. Submit with scripts/submit_full_training_fau.slurm")
         self.device = torch.device("cuda:0")
         self.use_amp = True
         torch.backends.cudnn.benchmark = True
