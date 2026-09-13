@@ -1,9 +1,0 @@
-.git
-.venv
-.wrangler
-__pycache__
-*.py[cod]
-.pytest_cache
-data
-outputs
-submission
