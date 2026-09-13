@@ -13,3 +13,6 @@ scipy
 tqdm
 streamlit
 pytest
+fastapi
+uvicorn[standard]
+python-multipart

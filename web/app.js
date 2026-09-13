@@ -5,6 +5,9 @@
 const CATALOGUE_URL =
   "data/catalogue.json";
 
+const INFERENCE_OPTIONS_URL =
+  "data/inference_options.json";
+
 
 const VIEW_GROUPS = [
 
@@ -134,6 +137,55 @@ const state = {
     },
 
   },
+
+};
+
+
+const uploadState = {
+
+  imageFile: null,
+
+  maskFile: null,
+
+  imageURL: null,
+
+  maskURL: null,
+
+  imageSize: null,
+
+  maskSize: null,
+
+  running: false,
+
+  apiOnline: false,
+
+  apiCheckRunning: false,
+
+  apiRetryTimer: null,
+
+  automaticParentAvailable: false,
+
+  parentCategories: [],
+
+  partQueries: [],
+
+  partSuggestionGroups: {},
+
+  parentPartGroups: {},
+
+  detections: [],
+
+  maskReady: false,
+
+  brushMode: "add",
+
+  drawing: false,
+
+  lastPoint: null,
+
+  initialMask: null,
+
+  undoStack: [],
 
 };
 
@@ -2364,6 +2416,8 @@ async function loadCatalogue() {
 
     chooseInitialSample();
 
+    populateUploadControls();
+
 
     $("#status-badge")
       .classList.add(
@@ -2902,5 +2956,1287 @@ function showToast(message) {
 }
 
 
+// ============================================================
+// USER IMAGE INFERENCE
+// ============================================================
+
+const API_BASE_URL = (
+  document.querySelector(
+    'meta[name="part-segmentation-api"]'
+  )?.content || ""
+).trim().replace(/\/$/, "");
+
+function inferenceURL(path) {
+
+  return `${API_BASE_URL}${path}`;
+
+}
+
+
+function uploadCategories() {
+
+  const configured = state.catalogue?.object_parts;
+
+  if (configured && typeof configured === "object") {
+
+    return Object.entries(configured)
+      .map(([object, parts]) => ({
+        object,
+        parts: [...parts],
+      }))
+      .sort((a, b) => a.object.localeCompare(b.object));
+
+  }
+
+  const partsByObject = new Map();
+
+  for (const sample of state.samples) {
+
+    if (!partsByObject.has(sample.object)) {
+      partsByObject.set(sample.object, new Set());
+    }
+
+    partsByObject.get(sample.object).add(sample.part);
+
+  }
+
+  return [...partsByObject.entries()]
+    .map(([object, parts]) => ({
+      object,
+      parts: [...parts].sort(),
+    }))
+    .sort((a, b) => a.object.localeCompare(b.object));
+
+}
+
+
+function currentUploadObject() {
+
+  return $("#upload-object-input").value.trim();
+
+}
+
+
+function currentUploadPart() {
+
+  return $("#upload-part-input").value.trim();
+
+}
+
+
+function currentUploadCategory() {
+
+  const objectName = currentUploadObject().toLowerCase();
+  return uploadCategories().find(
+    (category) => category.object.toLowerCase() === objectName
+  );
+
+}
+
+
+function partSuggestionsForCurrentObject() {
+
+  const objectName = currentUploadObject().toLowerCase();
+
+  if (!uploadState.parentCategories.includes(objectName)) {
+    return [];
+  }
+
+  const category = currentUploadCategory();
+  if (category) {
+    return category.parts;
+  }
+
+  const groupName = uploadState.parentPartGroups[objectName];
+  return uploadState.partSuggestionGroups[groupName] || [];
+
+}
+
+
+function updateExperimentalNote() {
+
+  const category = currentUploadCategory();
+  const objectName = currentUploadObject().toLowerCase();
+  const partName = currentUploadPart().toLowerCase();
+  const supportedObject = uploadState.parentCategories.includes(objectName);
+  const evaluatedPair = Boolean(
+    category && category.parts.some((part) => part.toLowerCase() === partName)
+  );
+
+  $("#experimental-query-note").hidden = !(
+    supportedObject && partName && !evaluatedPair
+  );
+
+}
+
+
+function populateUploadSuggestions() {
+
+  for (const menu of $$(".autocomplete-menu")) {
+    menu.innerHTML = "";
+    menu.hidden = true;
+  }
+
+}
+
+
+function autocompleteMatches(values, query) {
+
+  const normalised = query.trim().toLowerCase();
+
+  if (!normalised) {
+    return [...values];
+  }
+
+  return [...values]
+    .filter((value) => value.toLowerCase().includes(normalised))
+    .sort((a, b) => {
+      const aStarts = a.toLowerCase().startsWith(normalised) ? 0 : 1;
+      const bStarts = b.toLowerCase().startsWith(normalised) ? 0 : 1;
+      return aStarts - bStarts || a.localeCompare(b);
+    });
+
+}
+
+
+function setupAutocomplete(
+  inputSelector,
+  menuSelector,
+  valuesProvider,
+  onChoose = () => {}
+) {
+
+  const input = $(inputSelector);
+  const menu = $(menuSelector);
+  let activeIndex = -1;
+
+  function close() {
+    menu.hidden = true;
+    activeIndex = -1;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  }
+
+  function choose(value) {
+    input.value = value;
+    close();
+    onChoose(value);
+    clearUploadResult();
+    updateUploadReadiness();
+    input.focus();
+  }
+
+  function render() {
+    const matches = autocompleteMatches(valuesProvider(), input.value);
+    menu.innerHTML = "";
+    activeIndex = -1;
+
+    if (matches.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "autocomplete-empty";
+      empty.textContent = "No supported match";
+      menu.appendChild(empty);
+    }
+    else {
+      matches.forEach((value, index) => {
+        const option = document.createElement("button");
+        option.className = "autocomplete-option";
+        option.type = "button";
+        option.id = `${menu.id}-option-${index}`;
+        option.setAttribute("role", "option");
+        option.dataset.value = value;
+        option.textContent = human(value);
+        option.addEventListener("mousedown", (event) => event.preventDefault());
+        option.addEventListener("click", () => choose(value));
+        menu.appendChild(option);
+      });
+    }
+
+    menu.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
+  function moveActive(direction) {
+    const options = Array.from(
+      menu.querySelectorAll(".autocomplete-option")
+    );
+    if (options.length === 0) {
+      return;
+    }
+
+    options.forEach((option) => option.classList.remove("is-active"));
+    activeIndex = (activeIndex + direction + options.length) % options.length;
+    const active = options[activeIndex];
+    active.classList.add("is-active");
+    active.scrollIntoView({ block: "nearest" });
+    input.setAttribute("aria-activedescendant", active.id);
+  }
+
+  input.addEventListener("focus", render);
+  input.addEventListener("input", render);
+  input.addEventListener("blur", () => window.setTimeout(close, 120));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (menu.hidden) {
+        render();
+      }
+      moveActive(event.key === "ArrowDown" ? 1 : -1);
+    }
+    else if (event.key === "Enter" && !menu.hidden) {
+      const options = Array.from(
+        menu.querySelectorAll(".autocomplete-option")
+      );
+      const selected = options[activeIndex] || options[0];
+      if (selected) {
+        event.preventDefault();
+        choose(selected.dataset.value);
+      }
+    }
+    else if (event.key === "Escape") {
+      close();
+    }
+  });
+
+}
+
+
+async function loadStaticInferenceOptions() {
+
+  try {
+    const response = await fetch(
+      INFERENCE_OPTIONS_URL,
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const options = await response.json();
+
+    if (Array.isArray(options.parent_categories)) {
+      uploadState.parentCategories = options.parent_categories;
+    }
+    if (Array.isArray(options.part_queries)) {
+      uploadState.partQueries = options.part_queries;
+    }
+    if (options.part_suggestion_groups) {
+      uploadState.partSuggestionGroups = options.part_suggestion_groups;
+    }
+    if (options.parent_part_groups) {
+      uploadState.parentPartGroups = options.parent_part_groups;
+    }
+
+    populateUploadSuggestions();
+    updateUploadReadiness();
+  }
+  catch (error) {
+    console.warn("Static inference options unavailable", error);
+  }
+
+}
+
+
+function populateUploadControls() {
+
+  const modelSelect = $("#upload-model-select");
+
+  modelSelect.innerHTML = "";
+
+  for (const model of state.models) {
+
+    const option = document.createElement("option");
+    option.value = model.id.replace(/^final_/, "");
+    option.textContent = model.label;
+    modelSelect.appendChild(option);
+
+  }
+
+  const preferredModel = state.models.find(
+    (model) => model.id === "final_rotation_consistent"
+  );
+
+  if (preferredModel) {
+    modelSelect.value = preferredModel.id.replace(/^final_/, "");
+  }
+
+  modelSelect.disabled = state.models.length === 0;
+
+  handleUploadObjectInput();
+  updateUploadReadiness();
+
+}
+
+
+function handleUploadObjectInput() {
+
+  const partInput = $("#upload-part-input");
+  const suggestions = partSuggestionsForCurrentObject();
+  const category = currentUploadCategory();
+  const currentPart = partInput.value.trim().toLowerCase();
+
+  partInput.placeholder = category
+    ? `Type to search ${human(category.object)} parts`
+    : suggestions.length
+      ? "Type to search trained parts"
+      : "Select an object, then type a part";
+
+  if (
+    currentPart
+    && !suggestions.some((part) => part.toLowerCase() === currentPart)
+  ) {
+    partInput.value = "";
+  }
+
+  $("#upload-part-menu").hidden = true;
+  updateExperimentalNote();
+  clearUploadResult();
+  updateUploadReadiness();
+
+}
+
+
+function setUploadStatus(message, type = "") {
+
+  const status = $("#upload-status");
+  status.textContent = message;
+  status.classList.toggle("is-error", type === "error");
+  status.classList.toggle("is-success", type === "success");
+
+}
+
+
+function clearUploadResult() {
+
+  const image = $("#upload-result-preview");
+  image.hidden = true;
+  image.removeAttribute("src");
+  $("#upload-result-empty").hidden = false;
+
+}
+
+
+function matchingUploadDimensions() {
+
+  if (!uploadState.imageSize || !uploadState.maskSize) {
+    return true;
+  }
+
+  return (
+    uploadState.imageSize.width === uploadState.maskSize.width
+    && uploadState.imageSize.height === uploadState.maskSize.height
+  );
+
+}
+
+
+function updateUploadReadiness() {
+
+  const objectValue = currentUploadObject().toLowerCase();
+  const partValue = currentUploadPart().toLowerCase();
+  const supportedObject = uploadState.parentCategories.includes(objectValue);
+  const supportedPart = partSuggestionsForCurrentObject()
+    .some((part) => part.toLowerCase() === partValue);
+
+  updateExperimentalNote();
+
+  const ready = Boolean(
+    uploadState.apiOnline
+    && uploadState.imageFile
+    && uploadState.maskReady
+    && currentUploadObject()
+    && currentUploadPart()
+    && supportedObject
+    && supportedPart
+    && $("#upload-model-select").value
+    && matchingUploadDimensions()
+  );
+
+  $("#upload-run-button").disabled = !ready || uploadState.running;
+  $("#detect-parent-button").disabled = !(
+    uploadState.apiOnline
+    && uploadState.automaticParentAvailable
+    && uploadState.imageFile
+    && !uploadState.running
+  );
+
+  if (
+    uploadState.imageSize
+    && uploadState.maskSize
+    && !matchingUploadDimensions()
+  ) {
+    setUploadStatus(
+      `Image is ${uploadState.imageSize.width}×${uploadState.imageSize.height}, `
+      + `but mask is ${uploadState.maskSize.width}×${uploadState.maskSize.height}. `
+      + "They must match.",
+      "error"
+    );
+  }
+  else if (objectValue && !supportedObject) {
+    setUploadStatus(
+      "Choose an object from the supported COCO category suggestions.",
+      "error"
+    );
+  }
+  else if (partValue && !supportedPart) {
+    setUploadStatus(
+      "Choose a part from the trained part-query suggestions.",
+      "error"
+    );
+  }
+  else if (ready && !uploadState.running) {
+    setUploadStatus("Inputs ready. Run the trained part-segmentation model.");
+  }
+
+}
+
+
+async function checkInferenceAPI() {
+
+  if (uploadState.apiCheckRunning) {
+    return;
+  }
+
+  uploadState.apiCheckRunning = true;
+  window.clearTimeout(uploadState.apiRetryTimer);
+
+  const badge = $("#upload-api-badge");
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+
+    const response = await fetch(
+      inferenceURL("/api/health"),
+      {
+        cache: "no-store",
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const health = await response.json();
+    uploadState.apiOnline = health.status === "ok";
+    uploadState.automaticParentAvailable = Boolean(
+      health.automatic_parent_prediction
+    );
+    if (Array.isArray(health.parent_categories) && health.parent_categories.length) {
+      uploadState.parentCategories = health.parent_categories;
+    }
+    if (Array.isArray(health.part_queries) && health.part_queries.length) {
+      uploadState.partQueries = health.part_queries;
+    }
+    if (health.part_suggestion_groups) {
+      uploadState.partSuggestionGroups = health.part_suggestion_groups;
+    }
+    if (health.parent_part_groups) {
+      uploadState.parentPartGroups = health.parent_part_groups;
+    }
+    populateUploadSuggestions();
+
+    if (!uploadState.apiOnline) {
+      throw new Error("API is not ready");
+    }
+
+    badge.textContent = uploadState.automaticParentAvailable
+      ? "Automatic parent prediction available"
+      : "Manual parent mask available";
+    badge.classList.remove("is-checking", "is-offline");
+    uploadState.apiRetryTimer = null;
+
+  }
+  catch (error) {
+
+    console.info("Inference API unavailable", error);
+    uploadState.apiOnline = false;
+    badge.textContent = "Inference API starting · retrying";
+    badge.classList.remove("is-checking");
+    badge.classList.add("is-offline");
+    setUploadStatus(
+      "Waiting for the Python inference API. The page will reconnect automatically."
+    );
+
+  }
+  finally {
+
+    window.clearTimeout(timeout);
+    uploadState.apiCheckRunning = false;
+    updateUploadReadiness();
+
+    if (!uploadState.apiOnline) {
+      uploadState.apiRetryTimer = window.setTimeout(
+        checkInferenceAPI,
+        4000
+      );
+    }
+
+  }
+
+}
+
+
+function validUploadFile(file) {
+
+  if (!file || !file.type.startsWith("image/")) {
+    setUploadStatus("Please select a PNG, JPEG or WebP image.", "error");
+    return false;
+  }
+
+  if (file.size > 15 * 1024 * 1024) {
+    setUploadStatus("The selected file is larger than 15 MB.", "error");
+    return false;
+  }
+
+  return true;
+
+}
+
+
+function setMaskEditorEnabled(enabled) {
+
+  for (const selector of [
+    "#mask-add-tool",
+    "#mask-erase-tool",
+    "#mask-brush-size",
+    "#mask-reset-button",
+  ]) {
+    $(selector).disabled = !enabled;
+  }
+
+  $("#mask-undo-button").disabled = !enabled || uploadState.undoStack.length === 0;
+
+}
+
+
+function clearParentMask() {
+
+  const canvas = $("#mask-editor-canvas");
+  const context = canvas.getContext("2d");
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.hidden = true;
+  $("#mask-editor-image").hidden = true;
+  $("#upload-mask-empty").hidden = false;
+
+  uploadState.maskFile = null;
+  uploadState.maskSize = null;
+  uploadState.maskReady = false;
+  uploadState.initialMask = null;
+  uploadState.undoStack = [];
+  setMaskEditorEnabled(false);
+  clearUploadResult();
+  updateUploadReadiness();
+
+}
+
+
+function imageDataFromMask(maskImage, width, height) {
+
+  const temporary = document.createElement("canvas");
+  temporary.width = width;
+  temporary.height = height;
+  const temporaryContext = temporary.getContext("2d", { willReadFrequently: true });
+  temporaryContext.drawImage(maskImage, 0, 0, width, height);
+  const source = temporaryContext.getImageData(0, 0, width, height);
+  const overlay = new ImageData(width, height);
+
+  for (let offset = 0; offset < source.data.length; offset += 4) {
+    const luminance = (
+      source.data[offset]
+      + source.data[offset + 1]
+      + source.data[offset + 2]
+    ) / 3;
+
+    if (luminance >= 128) {
+      overlay.data[offset] = 239;
+      overlay.data[offset + 1] = 68;
+      overlay.data[offset + 2] = 68;
+      overlay.data[offset + 3] = 155;
+    }
+  }
+
+  return overlay;
+
+}
+
+
+function loadMaskIntoEditor(maskURL) {
+
+  return new Promise((resolve, reject) => {
+
+    if (!uploadState.imageSize || !uploadState.imageURL) {
+      reject(new Error("Upload the RGB image before creating its parent mask."));
+      return;
+    }
+
+    const maskImage = new Image();
+
+    maskImage.onload = () => {
+
+      const size = {
+        width: maskImage.naturalWidth,
+        height: maskImage.naturalHeight,
+      };
+      uploadState.maskSize = size;
+
+      if (!matchingUploadDimensions()) {
+        updateUploadReadiness();
+        reject(new Error("The parent mask dimensions do not match the RGB image."));
+        return;
+      }
+
+      const canvas = $("#mask-editor-canvas");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      canvas.width = size.width;
+      canvas.height = size.height;
+      context.putImageData(
+        imageDataFromMask(maskImage, size.width, size.height),
+        0,
+        0
+      );
+
+      const editorImage = $("#mask-editor-image");
+      editorImage.src = uploadState.imageURL;
+      editorImage.hidden = false;
+      canvas.hidden = false;
+      $("#upload-mask-empty").hidden = true;
+
+      uploadState.maskReady = true;
+      uploadState.initialMask = context.getImageData(0, 0, canvas.width, canvas.height);
+      uploadState.undoStack = [];
+      setMaskEditorEnabled(true);
+      clearUploadResult();
+      updateUploadReadiness();
+      resolve();
+
+    };
+
+    maskImage.onerror = () => reject(new Error("Could not read the parent mask."));
+    maskImage.src = maskURL;
+
+  });
+
+}
+
+
+function setUploadFile(kind, file) {
+
+  if (!validUploadFile(file)) {
+    return;
+  }
+
+  if (kind === "image") {
+
+    if (uploadState.imageURL) {
+      URL.revokeObjectURL(uploadState.imageURL);
+    }
+
+    uploadState.imageFile = file;
+    uploadState.imageURL = URL.createObjectURL(file);
+    uploadState.imageSize = null;
+    uploadState.detections = [];
+    clearParentMask();
+
+    const preview = $("#upload-image-preview");
+    preview.onload = () => {
+      uploadState.imageSize = {
+        width: preview.naturalWidth,
+        height: preview.naturalHeight,
+      };
+
+      const previewGrid = $(".upload-preview-grid");
+      previewGrid.style.setProperty(
+        "--upload-image-ratio",
+        `${preview.naturalWidth} / ${preview.naturalHeight}`
+      );
+      previewGrid.classList.add("has-image");
+
+      updateUploadReadiness();
+      setUploadStatus(
+        $("#upload-parent-source").value === "automatic"
+          ? "Image ready. Predict its parent mask next."
+          : "Image ready. Upload its matching parent mask next."
+      );
+    };
+    preview.src = uploadState.imageURL;
+    preview.hidden = false;
+    $("#upload-image-empty").hidden = true;
+    $("#upload-image-name").textContent = file.name;
+    $("#image-drop-zone").classList.add("has-file");
+    $(".detected-object-field").hidden = true;
+
+  }
+  else {
+
+    if (uploadState.maskURL) {
+      URL.revokeObjectURL(uploadState.maskURL);
+    }
+
+    uploadState.maskFile = file;
+    uploadState.maskURL = URL.createObjectURL(file);
+    $("#upload-mask-name").textContent = file.name;
+    $("#mask-drop-zone").classList.add("has-file");
+
+    loadMaskIntoEditor(uploadState.maskURL)
+      .then(() => setUploadStatus("Parent mask ready. Correct it with Add or Erase if needed."))
+      .catch((error) => setUploadStatus(error.message, "error"));
+
+  }
+
+  clearUploadResult();
+  updateUploadReadiness();
+
+}
+
+
+function messageFromAPI(payload, response) {
+
+  if (payload?.detail) {
+    return typeof payload.detail === "string"
+      ? payload.detail
+      : JSON.stringify(payload.detail);
+  }
+
+  if (response.status === 404) {
+    return "Inference API is not connected. Run the Python inference server, not the static-only server.";
+  }
+
+  return `Prediction failed with HTTP ${response.status}.`;
+
+}
+
+
+async function selectParentDetection(index) {
+
+  const detection = uploadState.detections[index];
+  if (!detection) {
+    return;
+  }
+
+  $("#upload-object-input").value = detection.category;
+  $("#upload-part-input").value = "";
+  handleUploadObjectInput();
+
+  try {
+    await loadMaskIntoEditor(detection.mask_data_url);
+    setUploadStatus(
+      `${human(detection.category)} detected with `
+      + `${Math.round(detection.score * 100)}% confidence. `
+      + "Correct the red parent mask if needed."
+    );
+  }
+  catch (error) {
+    setUploadStatus(error.message, "error");
+  }
+
+}
+
+
+async function detectParentMask() {
+
+  if (!uploadState.imageFile || $("#detect-parent-button").disabled) {
+    return;
+  }
+
+  uploadState.running = true;
+  updateUploadReadiness();
+  clearParentMask();
+  $("#automatic-parent-panel").classList.add("is-detecting");
+  $("#detect-parent-button").textContent = "Detecting...";
+  setUploadStatus(
+    "Finding parent objects. The first request downloads and loads the detector..."
+  );
+
+  const form = new FormData();
+  form.append("image", uploadState.imageFile);
+
+  try {
+
+    const response = await fetch(
+      inferenceURL("/api/parent/predict"),
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(messageFromAPI(payload, response));
+    }
+
+    uploadState.detections = payload.detections || [];
+
+    if (uploadState.detections.length === 0) {
+      $("#upload-parent-source").value = "manual";
+      handleParentSourceChange();
+      throw new Error(
+        "No COCO object was detected above the confidence threshold. Upload a parent mask manually instead."
+      );
+    }
+
+    const detectionField = $(".detected-object-field");
+    const detectionSelect = $("#detected-object-select");
+    detectionSelect.innerHTML = "";
+
+    uploadState.detections.forEach((detection, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = (
+        `${human(detection.category)} · ${Math.round(detection.score * 100)}%`
+      );
+      detectionSelect.appendChild(option);
+    });
+
+    detectionField.hidden = false;
+    await selectParentDetection(0);
+
+  }
+  catch (error) {
+    console.error(error);
+    setUploadStatus(error.message || "Parent prediction failed.", "error");
+  }
+  finally {
+    uploadState.running = false;
+    $("#automatic-parent-panel").classList.remove("is-detecting");
+    $("#detect-parent-button").textContent = "Predict parent mask";
+    updateUploadReadiness();
+  }
+
+}
+
+
+function canvasPoint(event) {
+
+  const canvas = $("#mask-editor-canvas");
+  const bounds = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - bounds.left) * canvas.width / bounds.width,
+    y: (event.clientY - bounds.top) * canvas.height / bounds.height,
+  };
+
+}
+
+
+function saveMaskUndoState() {
+
+  const canvas = $("#mask-editor-canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  uploadState.undoStack.push(
+    context.getImageData(0, 0, canvas.width, canvas.height)
+  );
+
+  if (uploadState.undoStack.length > 6) {
+    uploadState.undoStack.shift();
+  }
+
+  setMaskEditorEnabled(true);
+
+}
+
+
+function paintMask(from, to) {
+
+  const canvas = $("#mask-editor-canvas");
+  const context = canvas.getContext("2d");
+  const bounds = canvas.getBoundingClientRect();
+  const brushSize = Number($("#mask-brush-size").value);
+  const nativeSize = brushSize * canvas.width / bounds.width;
+
+  context.save();
+  context.globalCompositeOperation = uploadState.brushMode === "erase"
+    ? "destination-out"
+    : "source-over";
+  context.strokeStyle = "rgba(239, 68, 68, 0.61)";
+  context.fillStyle = "rgba(239, 68, 68, 0.61)";
+  context.lineWidth = nativeSize;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+
+  if (from.x === to.x && from.y === to.y) {
+    context.beginPath();
+    context.arc(to.x, to.y, nativeSize / 2, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.restore();
+
+}
+
+
+function beginMaskStroke(event) {
+
+  if (!uploadState.maskReady || event.button !== 0) {
+    return;
+  }
+
+  event.preventDefault();
+  const canvas = $("#mask-editor-canvas");
+  canvas.setPointerCapture(event.pointerId);
+  saveMaskUndoState();
+  uploadState.drawing = true;
+  uploadState.lastPoint = canvasPoint(event);
+  paintMask(uploadState.lastPoint, uploadState.lastPoint);
+  clearUploadResult();
+
+}
+
+
+function continueMaskStroke(event) {
+
+  if (!uploadState.drawing) {
+    return;
+  }
+
+  event.preventDefault();
+  const point = canvasPoint(event);
+  paintMask(uploadState.lastPoint, point);
+  uploadState.lastPoint = point;
+
+}
+
+
+function finishMaskStroke() {
+
+  if (!uploadState.drawing) {
+    return;
+  }
+
+  uploadState.drawing = false;
+  uploadState.lastPoint = null;
+  setUploadStatus("Parent mask corrected. It is ready for part segmentation.");
+  updateUploadReadiness();
+
+}
+
+
+function setMaskBrushMode(mode) {
+
+  uploadState.brushMode = mode;
+
+  for (const candidate of ["add", "erase"]) {
+    const button = $(`#mask-${candidate}-tool`);
+    const selected = candidate === mode;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+  }
+
+}
+
+
+function undoMaskEdit() {
+
+  const previous = uploadState.undoStack.pop();
+  if (!previous) {
+    return;
+  }
+
+  $("#mask-editor-canvas").getContext("2d").putImageData(previous, 0, 0);
+  setMaskEditorEnabled(true);
+  clearUploadResult();
+  setUploadStatus("Last mask edit undone.");
+
+}
+
+
+function resetMaskEditor() {
+
+  if (!uploadState.initialMask) {
+    return;
+  }
+
+  saveMaskUndoState();
+  $("#mask-editor-canvas").getContext("2d").putImageData(
+    uploadState.initialMask,
+    0,
+    0
+  );
+  clearUploadResult();
+  setUploadStatus("Parent mask reset to its initial prediction.");
+
+}
+
+
+function editedMaskBlob() {
+
+  const source = $("#mask-editor-canvas");
+  const sourceContext = source.getContext("2d", { willReadFrequently: true });
+  const sourceData = sourceContext.getImageData(0, 0, source.width, source.height);
+  const output = document.createElement("canvas");
+  output.width = source.width;
+  output.height = source.height;
+  const outputContext = output.getContext("2d");
+  const mask = outputContext.createImageData(output.width, output.height);
+
+  for (let offset = 0; offset < sourceData.data.length; offset += 4) {
+    const selected = sourceData.data[offset + 3] > 20 ? 255 : 0;
+    mask.data[offset] = selected;
+    mask.data[offset + 1] = selected;
+    mask.data[offset + 2] = selected;
+    mask.data[offset + 3] = 255;
+  }
+
+  outputContext.putImageData(mask, 0, 0);
+
+  return new Promise((resolve, reject) => {
+    output.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error("Could not export the corrected mask.")),
+      "image/png"
+    );
+  });
+
+}
+
+
+async function runUploadedInference() {
+
+  if ($("#upload-run-button").disabled) {
+    return;
+  }
+
+  uploadState.running = true;
+  updateUploadReadiness();
+  clearUploadResult();
+  setUploadStatus(
+    "Loading the model and predicting. The first request can take longer..."
+  );
+
+  try {
+
+    const maskBlob = await editedMaskBlob();
+    const form = new FormData();
+    form.append("image", uploadState.imageFile);
+    form.append("parent_mask", maskBlob, "corrected-parent-mask.png");
+    form.append("category", currentUploadObject());
+    form.append("part", currentUploadPart());
+    form.append("model", $("#upload-model-select").value);
+
+    const response = await fetch(
+      inferenceURL("/api/predict"),
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : null;
+
+    if (!response.ok) {
+      throw new Error(messageFromAPI(payload, response));
+    }
+
+    if (!payload?.overlay_data_url) {
+      throw new Error("The inference API returned no prediction image.");
+    }
+
+    const result = $("#upload-result-preview");
+    result.src = payload.overlay_data_url;
+    result.hidden = false;
+    $("#upload-result-empty").hidden = true;
+
+    const experimental = payload.evaluation_mode === "open_vocabulary_experimental";
+    setUploadStatus(
+      `${human(payload.category)} / ${human(payload.part)} predicted with `
+      + `${human(payload.model)} at threshold ${payload.threshold}.`
+      + (experimental ? " Experimental open-vocabulary result." : ""),
+      "success"
+    );
+    showToast("Part prediction complete");
+
+  }
+  catch (error) {
+
+    console.error(error);
+    setUploadStatus(error.message || "Prediction failed.", "error");
+
+  }
+  finally {
+
+    uploadState.running = false;
+    updateUploadReadiness();
+
+  }
+
+}
+
+
+function setupDropZone(zoneSelector, kind) {
+
+  const zone = $(zoneSelector);
+
+  for (const eventName of ["dragenter", "dragover"]) {
+    zone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      zone.classList.add("is-dragging");
+    });
+  }
+
+  for (const eventName of ["dragleave", "drop"]) {
+    zone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      zone.classList.remove("is-dragging");
+    });
+  }
+
+  zone.addEventListener("drop", (event) => {
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      setUploadFile(kind, file);
+    }
+  });
+
+}
+
+
+function handleParentSourceChange() {
+
+  const automatic = $("#upload-parent-source").value === "automatic";
+  $("#automatic-parent-panel").hidden = !automatic;
+  $("#mask-drop-zone").hidden = automatic;
+  $(".detected-object-field").hidden = true;
+  clearParentMask();
+
+  setUploadStatus(
+    automatic
+      ? uploadState.imageFile
+        ? "Image ready. Predict its parent mask next."
+        : "Upload an RGB image to predict its parent mask."
+      : uploadState.imageFile
+        ? "Upload a matching white-on-black parent mask."
+        : "Upload an RGB image and a matching parent mask."
+  );
+
+}
+
+
+function setupUploadLab() {
+
+  loadStaticInferenceOptions();
+  checkInferenceAPI();
+
+  setupAutocomplete(
+    "#upload-object-input",
+    "#upload-object-menu",
+    () => uploadState.parentCategories,
+    handleUploadObjectInput
+  );
+  setupAutocomplete(
+    "#upload-part-input",
+    "#upload-part-menu",
+    partSuggestionsForCurrentObject,
+    updateExperimentalNote
+  );
+
+  $("#upload-parent-source").addEventListener(
+    "change",
+    handleParentSourceChange
+  );
+
+  $("#upload-image-input").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadFile("image", file);
+    }
+  });
+
+  $("#upload-mask-input").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadFile("mask", file);
+    }
+  });
+
+  $("#upload-object-input").addEventListener(
+    "input",
+    handleUploadObjectInput
+  );
+
+  $("#upload-part-input").addEventListener("input", () => {
+    updateExperimentalNote();
+    clearUploadResult();
+    updateUploadReadiness();
+  });
+
+  $("#upload-model-select").addEventListener("change", () => {
+    clearUploadResult();
+    updateUploadReadiness();
+  });
+
+  $("#upload-run-button").addEventListener(
+    "click",
+    runUploadedInference
+  );
+
+  $("#detect-parent-button").addEventListener(
+    "click",
+    detectParentMask
+  );
+
+  $("#detected-object-select").addEventListener("change", (event) => {
+    selectParentDetection(Number(event.target.value));
+  });
+
+  $("#mask-add-tool").addEventListener("click", () => setMaskBrushMode("add"));
+  $("#mask-erase-tool").addEventListener("click", () => setMaskBrushMode("erase"));
+  $("#mask-undo-button").addEventListener("click", undoMaskEdit);
+  $("#mask-reset-button").addEventListener("click", resetMaskEditor);
+
+  const maskCanvas = $("#mask-editor-canvas");
+  maskCanvas.addEventListener("pointerdown", beginMaskStroke);
+  maskCanvas.addEventListener("pointermove", continueMaskStroke);
+  maskCanvas.addEventListener("pointerup", finishMaskStroke);
+  maskCanvas.addEventListener("pointercancel", finishMaskStroke);
+
+  setupDropZone("#image-drop-zone", "image");
+  setupDropZone("#mask-drop-zone", "mask");
+
+  handleParentSourceChange();
+
+}
+
+
+function setDemoMode(mode) {
+
+  const showingUpload = mode === "upload";
+  $("#upload-demo-panel").hidden = !showingUpload;
+  $("#catalogue-demo-panel").hidden = showingUpload;
+
+  for (const button of $$(".demo-mode-tab")) {
+    const selected = button.dataset.demoMode === mode;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+    button.tabIndex = selected ? 0 : -1;
+  }
+
+}
+
+
+function setupDemoModeSwitch() {
+
+  for (const button of $$(".demo-mode-tab")) {
+    button.addEventListener("click", () => {
+      setDemoMode(button.dataset.demoMode);
+    });
+  }
+
+  setDemoMode("upload");
+
+}
+
+
+setupDemoModeSwitch();
+setupUploadLab();
 setupEnhancedExperience();
 loadCatalogue();

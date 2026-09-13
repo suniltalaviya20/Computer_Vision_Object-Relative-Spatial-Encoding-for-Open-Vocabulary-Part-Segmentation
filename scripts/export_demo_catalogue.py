@@ -41,6 +41,8 @@ from dashboard.utils.demo_registry import (
     validate_demo_models,
 )
 
+from datasets.metadata import PARTS_BY_OBJECT
+
 
 # ============================================================
 # EXPORT CONFIGURATION
@@ -1284,6 +1286,12 @@ def main():
 
         "models":
             get_frontend_models(),
+
+        "object_parts": {
+            object_name: list(part_names)
+            for object_name, part_names
+            in PARTS_BY_OBJECT.values()
+        },
 
         "samples":
             catalogue_samples,

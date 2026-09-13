@@ -1,5 +1,23 @@
 {
   "schema_version": 1,
+  "object_parts": {
+    "aeroplane": ["body", "stern", "wing", "tail", "engine", "wheel"],
+    "bicycle": ["wheel", "saddle", "handlebar", "chainwheel", "headlight"],
+    "bird": ["wing", "tail", "head", "eye", "beak", "torso", "neck", "leg", "foot"],
+    "bottle": ["body", "cap"],
+    "bus": ["wheel", "headlight", "front", "side", "back", "roof", "mirror", "license plate", "door", "window"],
+    "car": ["wheel", "headlight", "front", "side", "back", "roof", "mirror", "license plate", "door", "window"],
+    "cat": ["tail", "head", "eye", "torso", "neck", "leg", "nose", "paw", "ear"],
+    "cow": ["tail", "head", "eye", "torso", "neck", "leg", "ear", "muzzle", "horn"],
+    "dog": ["tail", "head", "eye", "torso", "neck", "leg", "nose", "paw", "ear", "muzzle"],
+    "horse": ["tail", "head", "eye", "torso", "neck", "leg", "ear", "muzzle", "hoof"],
+    "motorbike": ["wheel", "saddle", "handlebar", "headlight"],
+    "person": ["head", "eye", "torso", "neck", "leg", "foot", "nose", "ear", "eyebrow", "mouth", "hair", "lower arm", "upper arm", "hand"],
+    "pottedplant": ["pot", "plant"],
+    "sheep": ["tail", "head", "eye", "torso", "neck", "leg", "ear", "muzzle", "horn"],
+    "train": ["headlight", "head", "front", "side", "back", "roof", "coach"],
+    "tvmonitor": ["screen"]
+  },
   "models": [
     {
       "id": "final_baseline_object_mask",

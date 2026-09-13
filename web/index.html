@@ -9,13 +9,20 @@
     content="width=device-width, initial-scale=1.0"
   >
 
+  <!-- Leave empty when the API serves this page. For a separately
+       hosted frontend, set content to the inference API origin. -->
+  <meta
+    name="part-segmentation-api"
+    content=""
+  >
+
   <title>
     Object-Relative Part Segmentation
   </title>
 
   <link
     rel="stylesheet"
-    href="styles.css?v=9"
+    href="styles.css?v=19"
   >
 </head>
 
@@ -93,8 +100,8 @@
         </h1>
 
         <p class="lead">
-          Select an object, part, robustness condition,
-          model and visualization.
+          Run the model on your own image or explore the
+          prepared research examples.
         </p>
 
       </div>
@@ -127,6 +134,333 @@
 
     </div>
 
+
+    <nav
+      class="demo-mode-switch"
+      aria-label="Choose demo mode"
+      role="tablist"
+    >
+      <button
+        class="demo-mode-tab is-active"
+        id="upload-mode-tab"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="upload-demo-panel"
+        data-demo-mode="upload"
+      >
+        <span>Try your image</span>
+        <small>Automatic mask + correction</small>
+      </button>
+
+      <button
+        class="demo-mode-tab"
+        id="catalogue-mode-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="catalogue-demo-panel"
+        data-demo-mode="catalogue"
+      >
+        <span>Explore saved results</span>
+        <small>111 examples + model comparison</small>
+      </button>
+    </nav>
+
+
+
+    <!-- ===================================================
+         USER IMAGE INFERENCE
+         =================================================== -->
+
+    <section
+      class="upload-lab"
+      id="upload-demo-panel"
+      role="tabpanel"
+      aria-labelledby="upload-mode-tab upload-lab-title"
+    >
+
+      <div class="upload-lab-heading">
+
+        <div>
+          <p class="eyebrow">TRY YOUR OWN IMAGE</p>
+
+          <h2 id="upload-lab-title">
+            Predict a part on a new object
+          </h2>
+
+          <p>
+            Upload an RGB image, predict its parent-object mask,
+            correct the mask with the brush, then choose a part.
+          </p>
+        </div>
+
+        <span
+          class="availability-badge is-checking"
+          id="upload-api-badge"
+        >
+          Checking inference API
+        </span>
+
+      </div>
+
+
+      <div class="upload-mode-row">
+
+        <label class="field upload-mode-field">
+          <span>Parent-object source</span>
+
+          <select id="upload-parent-source">
+            <option value="automatic">
+              Predict parent mask automatically
+            </option>
+
+            <option value="manual">
+              Upload parent mask manually
+            </option>
+          </select>
+        </label>
+
+        <p class="upload-mode-help">
+          Automatic mode suggests the object and mask. You can select
+          another detected object or correct the mask before prediction.
+        </p>
+
+      </div>
+
+
+      <div class="upload-input-grid">
+
+        <label class="upload-drop-zone" id="image-drop-zone">
+          <input
+            id="upload-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+          >
+
+          <span class="upload-step">1</span>
+          <strong>Upload RGB image</strong>
+          <span>PNG, JPEG or WebP · maximum 15 MB</span>
+          <em id="upload-image-name">No image selected</em>
+        </label>
+
+
+        <div class="automatic-parent-panel" id="automatic-parent-panel">
+
+          <span class="upload-step">2</span>
+
+          <div class="automatic-parent-copy">
+            <strong>Predict parent object</strong>
+            <span>Detect supported objects and create their masks</span>
+          </div>
+
+          <button
+            class="button secondary"
+            id="detect-parent-button"
+            type="button"
+            disabled
+          >
+            Predict parent mask
+          </button>
+
+          <label class="field detected-object-field" hidden>
+            <span>Detected object</span>
+            <select id="detected-object-select"></select>
+          </label>
+
+        </div>
+
+
+        <label
+          class="upload-drop-zone"
+          id="mask-drop-zone"
+          hidden
+        >
+          <input
+            id="upload-mask-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+          >
+
+          <span class="upload-step">2</span>
+          <strong>Upload parent mask</strong>
+          <span>White object on a black background</span>
+          <em id="upload-mask-name">No mask selected</em>
+        </label>
+
+      </div>
+
+
+      <div class="upload-controls">
+
+        <div class="field">
+          <span>Object category</span>
+          <input
+            id="upload-object-input"
+            type="text"
+            maxlength="80"
+            placeholder="Type to search 80 supported categories"
+            autocomplete="off"
+            aria-label="Object category"
+            aria-autocomplete="list"
+            aria-controls="upload-object-menu"
+            aria-expanded="false"
+          >
+
+          <div
+            class="autocomplete-menu"
+            id="upload-object-menu"
+            role="listbox"
+            hidden
+          ></div>
+        </div>
+
+        <div class="field">
+          <span>Requested part</span>
+          <input
+            id="upload-part-input"
+            type="text"
+            maxlength="80"
+            placeholder="Select an object, then type a part"
+            autocomplete="off"
+            aria-label="Requested part"
+            aria-autocomplete="list"
+            aria-controls="upload-part-menu"
+            aria-expanded="false"
+          >
+
+          <div
+            class="autocomplete-menu"
+            id="upload-part-menu"
+            role="listbox"
+            hidden
+          ></div>
+        </div>
+
+        <label class="field">
+          <span>Segmentation model</span>
+          <select id="upload-model-select" disabled>
+            <option>Loading models...</option>
+          </select>
+        </label>
+
+        <button
+          class="button upload-run-button"
+          id="upload-run-button"
+          type="button"
+          disabled
+        >
+          Run segmentation
+        </button>
+
+      </div>
+
+      <div
+        class="experimental-query-note"
+        id="experimental-query-note"
+        hidden
+      >
+        <strong>Experimental combination</strong>
+        This supported object-part pair was not part of the Pascal-Part-116 evaluation.
+      </div>
+
+
+      <div
+        class="upload-status"
+        id="upload-status"
+        role="status"
+        aria-live="polite"
+      >
+        Select an image and parent mask to begin.
+      </div>
+
+
+      <div class="upload-preview-grid">
+
+        <figure class="upload-preview-card">
+          <figcaption>Uploaded image</figcaption>
+          <div class="upload-preview-stage">
+            <img id="upload-image-preview" alt="Uploaded RGB image" hidden>
+            <span id="upload-image-empty">Image preview</span>
+          </div>
+        </figure>
+
+        <figure class="upload-preview-card mask-editor-card">
+
+          <figcaption class="mask-editor-heading">
+            <span>Parent mask editor</span>
+
+            <div class="mask-editor-tools">
+              <button
+                class="mask-tool is-active"
+                id="mask-add-tool"
+                type="button"
+                aria-pressed="true"
+                disabled
+              >Add</button>
+
+              <button
+                class="mask-tool"
+                id="mask-erase-tool"
+                type="button"
+                aria-pressed="false"
+                disabled
+              >Erase</button>
+
+              <label class="brush-size-field">
+                <span>Size</span>
+                <input
+                  id="mask-brush-size"
+                  type="range"
+                  min="4"
+                  max="80"
+                  value="24"
+                  disabled
+                >
+              </label>
+
+              <button class="mask-tool" id="mask-undo-button" type="button" disabled>
+                Undo
+              </button>
+
+              <button class="mask-tool" id="mask-reset-button" type="button" disabled>
+                Reset
+              </button>
+            </div>
+          </figcaption>
+
+          <div class="upload-preview-stage mask-editor-stage" id="mask-editor-stage">
+            <img id="mask-editor-image" alt="Image beneath the editable parent mask" hidden>
+            <canvas id="mask-editor-canvas" aria-label="Editable parent-object mask" hidden></canvas>
+            <span id="upload-mask-empty">Predict or upload a parent mask</span>
+          </div>
+
+          <p class="mask-editor-help">
+            Paint to add missing object pixels or switch to Erase to remove extras.
+          </p>
+
+        </figure>
+
+        <figure class="upload-preview-card result-card">
+          <figcaption>Part prediction</figcaption>
+          <div class="upload-preview-stage">
+            <img id="upload-result-preview" alt="Predicted part overlay" hidden>
+            <span id="upload-result-empty">Prediction will appear here</span>
+          </div>
+        </figure>
+
+      </div>
+
+    </section>
+
+
+    <div
+      class="catalogue-demo-panel"
+      id="catalogue-demo-panel"
+      role="tabpanel"
+      aria-labelledby="catalogue-mode-tab"
+      hidden
+    >
 
 
     <!-- ===================================================
@@ -770,6 +1104,8 @@
 
     </div>
 
+    </div>
+
 
 
     <!-- ===================================================
@@ -797,7 +1133,7 @@
        ===================================================== -->
 
   <script
-    src="app.js?v=9"
+    src="app.js?v=19"
     defer
   ></script>
 
