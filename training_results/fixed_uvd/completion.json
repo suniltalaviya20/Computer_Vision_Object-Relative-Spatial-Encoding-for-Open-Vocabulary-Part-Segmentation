@@ -1,0 +1,9 @@
+{
+  "experiment": "fixed_uvd",
+  "status": "trained",
+  "stop_reason": "early_stopping_validation_iou_plateau",
+  "epochs_completed": 17,
+  "selected_epoch": 12,
+  "best_validation_iou": 0.2855239875349412,
+  "checkpoint": "training_results/fixed_uvd/best.pt"
+}

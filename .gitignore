@@ -2,15 +2,12 @@
 # Datasets and generated artifacts
 data/raw/*
 data/processed/*
-outputs/*
 
 # Keep empty directories
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-!outputs/.gitkeep
 .env
 
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.wrangler/
