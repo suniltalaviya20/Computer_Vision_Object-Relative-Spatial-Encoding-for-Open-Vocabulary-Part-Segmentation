@@ -300,49 +300,47 @@ def evaluate_split(
 
             projected_binary = (
                 projected
-                > MASK_THRESHOLD
-            ).float()
-
+                >= MASK_THRESHOLD
+            )
 
             target_binary = (
                 full_part
-                > MASK_THRESHOLD
-            ).float()
-
+                >= 0.5
+            )
 
             intersection = (
                 projected_binary
-                * target_binary
+                & target_binary
             ).sum(
                 dim=(
                     1,
                     2,
                     3,
                 )
-            )
-
+            ).float()
 
             union = (
-                (
-                    projected_binary
-                    + target_binary
-                ) > 0
-            ).float().sum(
+                projected_binary
+                | target_binary
+            ).sum(
                 dim=(
                     1,
                     2,
                     3,
                 )
-            )
-
+            ).float()
 
             crop_iou = (
-                intersection
-                / union.clamp_min(
-                    1.0
+                (
+                    intersection
+                    + 1.0
+                )
+                /
+                (
+                    union
+                    + 1.0
                 )
             ).mean()
-
 
             dice_denominator = (
                 projected_binary.sum(
@@ -351,22 +349,25 @@ def evaluate_split(
                         2,
                         3,
                     )
-                )
+                ).float()
                 + target_binary.sum(
                     dim=(
                         1,
                         2,
                         3,
                     )
-                )
+                ).float()
             )
 
-
             crop_dice = (
-                2.0
-                * intersection
-                / dice_denominator.clamp_min(
-                    1.0
+                (
+                    2.0 * intersection
+                    + 1.0
+                )
+                /
+                (
+                    dice_denominator
+                    + 1.0
                 )
             ).mean()
 
