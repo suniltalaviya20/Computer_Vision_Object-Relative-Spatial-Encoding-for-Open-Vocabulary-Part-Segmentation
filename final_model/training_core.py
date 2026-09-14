@@ -294,13 +294,20 @@ class PartSegmenter(nn.Module):
         self.text_projection = nn.Sequential(
             nn.Linear(512, 64), nn.GELU(), nn.Linear(64, config.text_dim)
         )
-        self.geometry_gate = nn.Sequential(
-            nn.Linear(512, config.gate_hidden_dim),
-            nn.GELU(),
-            nn.Linear(config.gate_hidden_dim, 3),
-        )
-        nn.init.zeros_(self.geometry_gate[-1].weight)
-        nn.init.zeros_(self.geometry_gate[-1].bias)
+        if self.experiment in {
+            "query_gated_uvd",
+            "rotation_consistent",
+            "geometry_dropout",
+        }:
+            self.geometry_gate = nn.Sequential(
+                nn.Linear(512, config.gate_hidden_dim),
+                nn.GELU(),
+                nn.Linear(config.gate_hidden_dim, 3),
+            )
+            nn.init.zeros_(self.geometry_gate[-1].weight)
+            nn.init.zeros_(self.geometry_gate[-1].bias)
+        else:
+            self.geometry_gate = None
         fusion_dim = config.visual_dim + config.text_dim + 1 + 3
         self.decoder = nn.Sequential(
             nn.Conv2d(fusion_dim, 128, 3, padding=1),
@@ -348,12 +355,31 @@ class PartSegmenter(nn.Module):
             ],
             dim=1,
         ) * mask_low
-        learned_gates = torch.sigmoid(self.geometry_gate(text_embeddings))
+        batch_size = text_embeddings.shape[0]
+
         if self.experiment == "baseline_object_mask":
-            effective_gates = torch.zeros_like(learned_gates)
+            learned_gates = torch.zeros(
+                batch_size,
+                3,
+                device=text_embeddings.device,
+                dtype=text_embeddings.dtype,
+            )
+            effective_gates = learned_gates
+
         elif self.experiment == "fixed_uvd":
-            effective_gates = torch.ones_like(learned_gates)
+            learned_gates = torch.ones(
+                batch_size,
+                3,
+                device=text_embeddings.device,
+                dtype=text_embeddings.dtype,
+            )
+            effective_gates = learned_gates
+
         else:
+            assert self.geometry_gate is not None
+            learned_gates = torch.sigmoid(
+                self.geometry_gate(text_embeddings)
+            )
             effective_gates = learned_gates
         geometry = geometry * effective_gates[:, :, None, None]
         dropped = torch.zeros(len(images), dtype=torch.bool, device=images.device)
