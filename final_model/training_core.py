@@ -567,34 +567,32 @@ class TrainingRuntime:
                 if training and self.config.experiment == "rotation_consistent":
                     turns = int(torch.randint(1, 4, (1,), device=self.device).item())
 
-                    # Rotate only the image and masks. U, V, and D describe
-                    # object-relative geometry, so they must be recomputed from
-                    # the rotated parent-object mask rather than rotating the
-                    # original geometry maps.
                     rotated = {
                         key: torch.rot90(values[key], turns, (-2, -1))
                         for key in ("image", "object_mask", "part_mask")
                     }
-
-                    rotated_u: list[torch.Tensor] = []
-                    rotated_v: list[torch.Tensor] = []
-                    rotated_d: list[torch.Tensor] = []
-
-                    for mask in rotated["object_mask"]:
-                        u, v, d = relative_uvd(mask.detach().cpu())
-                        rotated_u.append(u)
-                        rotated_v.append(v)
-                        rotated_d.append(d)
-
-                    rotated["u"] = torch.stack(rotated_u, dim=0).to(
-                        self.device, non_blocking=True
+                    if turns == 1:
+                        rotated["u"] = torch.rot90(values["v"], 1, (-2, -1))
+                        rotated["v"] = torch.rot90(
+                            1.0 - values["u"], 1, (-2, -1)
+                        )
+                    elif turns == 2:
+                        rotated["u"] = torch.rot90(
+                            1.0 - values["u"], 2, (-2, -1)
+                        )
+                        rotated["v"] = torch.rot90(
+                            1.0 - values["v"], 2, (-2, -1)
+                        )
+                    else:
+                        rotated["u"] = torch.rot90(
+                            1.0 - values["v"], 3, (-2, -1)
+                        )
+                        rotated["v"] = torch.rot90(values["u"], 3, (-2, -1))
+                    rotated["d"] = torch.rot90(
+                        values["d"], turns, (-2, -1)
                     )
-                    rotated["v"] = torch.stack(rotated_v, dim=0).to(
-                        self.device, non_blocking=True
-                    )
-                    rotated["d"] = torch.stack(rotated_d, dim=0).to(
-                        self.device, non_blocking=True
-                    )
+                    for key in ("u", "v", "d"):
+                        rotated[key] = rotated[key] * rotated["object_mask"]
 
                     rotated_logits, _ = model(
                         rotated["image"],

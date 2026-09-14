@@ -1,16 +1,17 @@
 # Full-training submission notebooks
 
-This folder contains eight reproducible study notebooks plus one exploratory extension. The five
-experiment notebooks optimize models from scratch and therefore require an
-allocated CUDA GPU.
+This folder contains eight reproducible study notebooks. The five experiment
+notebooks optimize models from scratch and therefore require an allocated CUDA
+GPU.
 
 Each experiment notebook contains only the material needed for evaluation:
 the selected configuration, complete dataset/model/loss/training implementation,
 training command, complete epoch history, result tables, figures, and
 saved-output locations. The notebooks use the root dataset package and contain
 the complete training implementation directly in their cells.
-The final notebook compares all five models and records the validation-selected
-local-UI checkpoint.
+Notebook 06 compares all five models and records the validation-selected
+local-UI checkpoint. Notebook 07 then evaluates that selected model using a
+separate Pascal-Part-116 benchmark protocol.
 
 ## Experimental order
 
@@ -22,7 +23,6 @@ local-UI checkpoint.
 6. `05_geometry_branch_dropout.ipynb`
 7. `06_final_comparison_and_model_selection.ipynb`
 8. `07_pascal_part116_benchmark_comparison.ipynb`
-9. `08_fourier_uvd_experiment.ipynb` (exploratory; excluded from final selection by default)
 
 The five models use matched data, frozen DINOv2/OpenCLIP backbones, seed 42,
 image size 224, and validation-only checkpoint selection. Each model uses a
@@ -41,15 +41,20 @@ listed order. Experiment notebooks 01–05 default to `TRAIN_MODEL = False`. Set
 to `True` to train, keep `FRESH_TRAINING = True` for a new run, or set
 `FRESH_TRAINING = False` when resuming an interrupted run.
 
-Checkpoints, numerical results, figures, and executed notebooks are kept
-together under `training_results_corrected/`.
+Checkpoints, numerical results, figures, completion markers, and other generated
+reports are kept together under `training_results_corrected/`.
 
 Every experiment saves `training_curves.png`, `evaluation_comparison.png`, and
-`qualitative_unseen.png` alongside CSV/JSON metrics. Executed notebook copies
-are retained under `training_results_corrected/executed_notebooks/`.
+`qualitative_unseen.png` alongside CSV/JSON metrics.
 
 With `FRESH_TRAINING = False`, completed experiments reuse their saved results
 and interrupted experiments resume from their last completed epoch.
+
+Notebook 04 performs two model passes per training batch for its rotation-
+consistency objective. For its sampled 90-degree rotations, U and V are swapped
+or inverted as required and D is rotated directly on the GPU. This is
+mathematically equivalent to recomputing the rotated object-relative geometry,
+while avoiding the previous GPU-to-CPU transfers and CPU distance transforms.
 
 ## Final model
 
@@ -68,6 +73,12 @@ reports the controlled internal ablation and an Oracle-Obj-like Pascal-Part-116
 semantic-class comparison. It audits the training input protocol, reproduces the
 official 74-seen/42-unseen class partition, and keeps literature references
 separate from non-equivalent internal query-level metrics.
+
+The notebook 07 result is an approximate parent-mask-conditioned,
+Oracle-Obj-like comparison, not a strict Oracle-Obj or Pred-All leaderboard
+result. Its pipeline audit recorded 76 parent-mask repair activations; the saved
+protocol and repair audits under `training_results_corrected/benchmark_comparison/`
+must accompany interpretation of the reported benchmark numbers.
 
 The UI can load the selected checkpoint and predict at the original image size:
 

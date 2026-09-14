@@ -103,7 +103,7 @@ class StructureTests(unittest.TestCase):
                     self.assertIn("TRAIN_MODEL = False", source)
                     self.assertIn("training_results_corrected", source)
 
-    def test_rotation_geometry_is_recomputed(self):
+    def test_rotation_geometry_stays_on_device(self):
         core_source = (ROOT / "final_model/training_core.py").read_text()
         notebook = json.loads(
             (ROOT / "final_training_notebooks/04_rotation_consistency.ipynb").read_text()
@@ -112,11 +112,16 @@ class StructureTests(unittest.TestCase):
             "".join(cell.get("source", [])) for cell in notebook["cells"]
         )
         for source in (core_source, notebook_source):
-            self.assertIn('for mask in rotated["object_mask"]', source)
-            self.assertIn("relative_uvd(mask.detach().cpu())", source)
-            self.assertNotIn('torch.rot90(values["u"]', source)
-            self.assertNotIn('torch.rot90(values["v"]', source)
-            self.assertNotIn('torch.rot90(values["d"]', source)
+            self.assertNotIn('for mask in rotated["object_mask"]', source)
+            self.assertNotIn("relative_uvd(mask.detach().cpu())", source)
+            self.assertIn('torch.rot90(values["v"], 1, (-2, -1))', source)
+            self.assertIn('1.0 - values["u"]', source)
+            self.assertIn('1.0 - values["v"]', source)
+            self.assertIn('torch.rot90(values["u"], 3, (-2, -1))', source)
+            self.assertIn('values["d"], turns, (-2, -1)', source)
+            self.assertIn(
+                'rotated[key] = rotated[key] * rotated["object_mask"]', source
+            )
 
     def test_registry_paths(self):
         registry = json.loads((ROOT / "models/final_study/model_registry.json").read_text())

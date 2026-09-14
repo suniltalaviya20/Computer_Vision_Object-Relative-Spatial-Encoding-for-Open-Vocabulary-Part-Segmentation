@@ -13,23 +13,24 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 
 ```text
 .
-├── data/                        # Pascal-Part-116 (not committed)
+├── data/                        # tracked splits; downloaded/prepared data are ignored
 ├── datasets/                    # Pascal-Part loader and label metadata
 ├── deployment/                  # local FastAPI server
 ├── final_model/                 # final architecture, training, and inference
 ├── models/final_study/          # active deployment checkpoints and registry
 ├── final_training_notebooks/    # reproducible training notebooks
 ├── training_results_corrected/  # corrected metrics, plots and training artifacts
-├── scripts/                     # notebook training workflow
+├── scripts/                     # dataset preparation and static-web export
 ├── tests/                       # layout and API regression checks
 ├── requirements.txt             # project dependencies
 ├── README.md
 └── web/                         # static browser demo
 ```
 
-The notebooks and training results are retained as the complete training record.
-The main runtime copies only the smaller `ui_model.pt` artifacts into
-`models/final_study/`; `best.pt`, `last.pt`, logs, and reports are not duplicated.
+The source notebooks and generated training results form the training record.
+The deployment directory contains only compact inference-checkpoint copies;
+training `best.pt`/`last.pt` checkpoints, logs, and reports remain under
+`training_results_corrected/` and are not duplicated.
 
 ## Setup
 
@@ -40,21 +41,38 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The first training or inference run downloads DINOv2 and OpenCLIP from their
-official online sources. Later runs reuse the standard local caches.
+Use Python 3.10 or newer. Training requires a CUDA-capable GPU; direct inference
+and the local API can also run on CPU, although they will be slower. The first
+training or part-inference run requires internet access to download DINOv2 and
+OpenCLIP. Automatic parent-object detection separately downloads Torchvision's
+COCO Mask R-CNN weights. Later runs reuse the standard local caches.
 
 ## Final trained models
 
-| Model | Selected epoch | Validation IoU |
-|---|---:|---:|
-| Object-mask baseline | 20 | 0.2880 |
-| Fixed UVD | 15 | 0.2912 |
-| Query-gated UVD | 15 | 0.2909 |
-| Rotation-consistent UVD | 14 | **0.2937** |
-| Geometry-dropout UVD | 17 | 0.2878 |
+| Model | Selected epoch | Validation IoU | Seen test IoU | Unseen test IoU |
+|---|---:|---:|---:|---:|
+| Object-mask baseline | 20 | 0.2880 | 0.2956 | 0.2243 |
+| Fixed UVD | 15 | 0.2912 | 0.3015 | 0.2493 |
+| Query-gated UVD | 15 | 0.2909 | **0.3028** | 0.2456 |
+| Rotation-consistent UVD | 14 | **0.2937** | 0.3028 | **0.2712** |
+| Geometry-dropout UVD | 17 | 0.2878 | 0.2972 | 0.2415 |
 
 Rotation-consistent UVD is the selected model. Selection used validation IoU;
 test metrics were not used for checkpoint selection.
+
+### Pascal-Part-116 benchmark context
+
+Notebook 07 also evaluates the selected model with multiclass decoding inside
+ground-truth parent-object regions. It reports 47.78% seen mIoU, 31.31% unseen
+mIoU, and 37.83% harmonic IoU over the classes with valid test support.
+
+This is an approximate parent-mask-conditioned, Oracle-Obj-like comparison—not
+a strict Oracle-Obj or Pred-All leaderboard result. The model was trained as
+independent binary part queries at 224 px, while the official evaluator predicts
+a multiclass part map per oracle object region. The pipeline audit also recorded
+76 parent-mask repair activations, so the benchmark should be interpreted with
+the protocol qualifications saved in
+`training_results_corrected/benchmark_comparison/`.
 
 ## Dataset
 
@@ -73,6 +91,9 @@ data/raw/PascalPart116/
 data/processed/
 data/splits/
 ```
+
+The raw and processed datasets are intentionally excluded from version control;
+the deterministic split files under `data/splits/` are tracked.
 
 ## Run the static website
 
@@ -195,8 +216,8 @@ V, and D are computed relative to that mask.
 ## Reproducing training
 
 The source notebooks are in `final_training_notebooks/`. Existing metrics,
-plots, executed notebooks, inference files, and resume checkpoints are
-together in `training_results_corrected/`.
+plots, compact inference checkpoints, completion markers, and training-resume
+checkpoints are stored under `training_results_corrected/`.
 
 Open Jupyter from the repository root and run these notebooks manually in order:
 
@@ -216,6 +237,11 @@ loads the saved tables and plots without training. Set `TRAIN_MODEL = True` to
 train; keep `FRESH_TRAINING = True` for a new run, or set it to `False` to resume
 an interrupted run.
 
+Notebook 04 performs two model passes per training batch for its rotation-
+consistency objective. Its rotated UVD maps are transformed directly on the GPU
+for the sampled 90-degree rotation, avoiding CPU distance-transform
+recomputation without changing the experiment definition.
+
 The numerical results, plots, completion markers, and resume checkpoints are
 kept under `training_results_corrected/`. They are not required merely to view
 the static website or use an inference checkpoint.
@@ -231,3 +257,12 @@ python -m unittest discover -s tests -v
 
 The API tests use controlled model outputs to check uploads, model selection,
 parent detection and static assets. Real predictions require the encoder weights.
+
+## References and attribution
+
+- [OV-PARTS protocol and Pascal-Part-116 resources](https://github.com/OpenRobotLab/OV_PARTS)
+- [DINOv2](https://github.com/facebookresearch/dinov2)
+- [OpenCLIP](https://github.com/mlfoundations/open_clip)
+
+The downloaded datasets and pretrained model weights remain subject to their
+respective upstream licenses and terms.
