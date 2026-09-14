@@ -14,6 +14,5 @@ __pycache__/
 
 *.wrangler
 
-training_results_corrected/
 
 final_training_notebooks/08_fourier_uvd_experiment.ipynb

@@ -1,0 +1,33 @@
+{
+  "run_id": "manual",
+  "selection_rule": "maximum validation_seen IoU; no test metric used for selection",
+  "selected_model": "rotation_consistent",
+  "selected_checkpoint": "models/final_study/best_model.pt",
+  "models": {
+    "baseline_object_mask": {
+      "checkpoint": "models/final_study/baseline_object_mask.pt",
+      "validation_iou": 0.2880425611440546,
+      "selected_epoch": 20
+    },
+    "fixed_uvd": {
+      "checkpoint": "models/final_study/fixed_uvd.pt",
+      "validation_iou": 0.291171250597623,
+      "selected_epoch": 15
+    },
+    "query_gated_uvd": {
+      "checkpoint": "models/final_study/query_gated_uvd.pt",
+      "validation_iou": 0.2908936964213334,
+      "selected_epoch": 15
+    },
+    "rotation_consistent": {
+      "checkpoint": "models/final_study/rotation_consistent.pt",
+      "validation_iou": 0.2937194884884319,
+      "selected_epoch": 14
+    },
+    "geometry_dropout": {
+      "checkpoint": "models/final_study/geometry_dropout.pt",
+      "validation_iou": 0.2877624893346007,
+      "selected_epoch": 17
+    }
+  }
+}

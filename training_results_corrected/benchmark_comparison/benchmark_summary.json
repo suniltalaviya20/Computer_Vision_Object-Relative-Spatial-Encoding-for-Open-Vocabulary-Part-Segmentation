@@ -1,0 +1,18 @@
+{
+  "method": "rotation_consistent",
+  "protocol": "parent-mask-conditioned / Oracle-Obj-like",
+  "strict_leaderboard_equivalent": false,
+  "seen_miou": 0.4777813584714561,
+  "unseen_miou": 0.31310231266064675,
+  "h_iou": 0.37829697019644587,
+  "valid_seen_classes": 73,
+  "valid_unseen_classes": 41,
+  "evaluated_oracle_object_regions": 884,
+  "benchmark_seconds_including_model_load": 27.633792098000413,
+  "images_per_second_including_model_load": 30.759441085232243,
+  "peak_gpu_memory_gb": 0.6976146697998047,
+  "decoder": "argmax across applicable part-query probabilities; no test threshold tuning",
+  "checkpoint": "models/final_study/best_model.pt",
+  "checkpoint_sha256": "fe361285eaa65b5844b705c3d8715f781607e7ceba549dff0cf63c3e65bd5ebd",
+  "parent_mask_repair_activations_during_pipeline_audit": 76
+}
