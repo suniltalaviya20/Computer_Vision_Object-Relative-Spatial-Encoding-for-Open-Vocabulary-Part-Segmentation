@@ -110,13 +110,13 @@ def run_id() -> str:
 
 
 def points_root() -> Path:
-    path = PROJECT_ROOT / "training_results"
+    path = PROJECT_ROOT / "training_results_corrected"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def results_root() -> Path:
-    path = PROJECT_ROOT / "training_results"
+    path = PROJECT_ROOT / "training_results_corrected"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -127,6 +127,32 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def get_rng_state() -> dict[str, Any]:
+    state: dict[str, Any] = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch": torch.get_rng_state(),
+    }
+
+    if torch.cuda.is_available():
+        state["cuda"] = torch.cuda.get_rng_state_all()
+
+    return state
+
+
+def set_rng_state(state: dict[str, Any]) -> None:
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+
+    # torch.set_rng_state expects a CPU ByteTensor.
+    torch.set_rng_state(state["torch"].cpu())
+
+    if torch.cuda.is_available() and "cuda" in state:
+        torch.cuda.set_rng_state_all(
+            [cuda_state.cpu() for cuda_state in state["cuda"]]
+        )
 
 
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1)
@@ -272,13 +298,20 @@ class PartSegmenter(nn.Module):
         self.text_projection = nn.Sequential(
             nn.Linear(512, 64), nn.GELU(), nn.Linear(64, config.text_dim)
         )
-        self.geometry_gate = nn.Sequential(
-            nn.Linear(512, config.gate_hidden_dim),
-            nn.GELU(),
-            nn.Linear(config.gate_hidden_dim, 3),
-        )
-        nn.init.zeros_(self.geometry_gate[-1].weight)
-        nn.init.zeros_(self.geometry_gate[-1].bias)
+        if self.experiment in {
+            "query_gated_uvd",
+            "rotation_consistent",
+            "geometry_dropout",
+        }:
+            self.geometry_gate = nn.Sequential(
+                nn.Linear(512, config.gate_hidden_dim),
+                nn.GELU(),
+                nn.Linear(config.gate_hidden_dim, 3),
+            )
+            nn.init.zeros_(self.geometry_gate[-1].weight)
+            nn.init.zeros_(self.geometry_gate[-1].bias)
+        else:
+            self.geometry_gate = None
         fusion_dim = config.visual_dim + config.text_dim + 1 + 3
         self.decoder = nn.Sequential(
             nn.Conv2d(fusion_dim, 128, 3, padding=1),
@@ -326,12 +359,31 @@ class PartSegmenter(nn.Module):
             ],
             dim=1,
         ) * mask_low
-        learned_gates = torch.sigmoid(self.geometry_gate(text_embeddings))
+        batch_size = text_embeddings.shape[0]
+
         if self.experiment == "baseline_object_mask":
-            effective_gates = torch.zeros_like(learned_gates)
+            learned_gates = torch.zeros(
+                batch_size,
+                3,
+                device=text_embeddings.device,
+                dtype=text_embeddings.dtype,
+            )
+            effective_gates = learned_gates
+
         elif self.experiment == "fixed_uvd":
-            effective_gates = torch.ones_like(learned_gates)
+            learned_gates = torch.ones(
+                batch_size,
+                3,
+                device=text_embeddings.device,
+                dtype=text_embeddings.dtype,
+            )
+            effective_gates = learned_gates
+
         else:
+            assert self.geometry_gate is not None
+            learned_gates = torch.sigmoid(
+                self.geometry_gate(text_embeddings)
+            )
             effective_gates = learned_gates
         geometry = geometry * effective_gates[:, :, None, None]
         dropped = torch.zeros(len(images), dtype=torch.bool, device=images.device)
@@ -340,6 +392,7 @@ class PartSegmenter(nn.Module):
             geometry = geometry * (~dropped)[:, None, None, None]
         low_logits = self.decoder(torch.cat([visual, text_map, mask_low, geometry], dim=1))
         logits = F.interpolate(low_logits, images.shape[-2:], mode="bilinear", align_corners=False)
+
         return logits, {
             "learned_gates": learned_gates,
             "effective_gates": effective_gates,
@@ -400,7 +453,7 @@ class TrainingRuntime:
             split: GeometryDataset(split, config.image_size)
             for split in ("train_seen", "validation_seen", "test_seen", "test_unseen")
         }
-        generator = torch.Generator().manual_seed(config.seed)
+        self.train_generator = torch.Generator().manual_seed(config.seed)
         common = {
             "num_workers": workers,
             "pin_memory": True,
@@ -413,7 +466,7 @@ class TrainingRuntime:
                 self.datasets["train_seen"],
                 batch_size=config.batch_size,
                 shuffle=True,
-                generator=generator,
+                generator=self.train_generator,
                 drop_last=False,
                 **common,
             ),
@@ -513,17 +566,57 @@ class TrainingRuntime:
                 total_loss = losses["total"]
                 if training and self.config.experiment == "rotation_consistent":
                     turns = int(torch.randint(1, 4, (1,), device=self.device).item())
+
+                    # Rotate only the image and masks. U, V, and D describe
+                    # object-relative geometry, so they must be recomputed from
+                    # the rotated parent-object mask rather than rotating the
+                    # original geometry maps.
                     rotated = {
                         key: torch.rot90(values[key], turns, (-2, -1))
-                        for key in ("image", "object_mask", "part_mask", "u", "v", "d")
+                        for key in ("image", "object_mask", "part_mask")
                     }
-                    rotated_logits, _ = model(
-                        rotated["image"], text, rotated["object_mask"], rotated["u"], rotated["v"], rotated["d"]
+
+                    rotated_u: list[torch.Tensor] = []
+                    rotated_v: list[torch.Tensor] = []
+                    rotated_d: list[torch.Tensor] = []
+
+                    for mask in rotated["object_mask"]:
+                        u, v, d = relative_uvd(mask.detach().cpu())
+                        rotated_u.append(u)
+                        rotated_v.append(v)
+                        rotated_d.append(d)
+
+                    rotated["u"] = torch.stack(rotated_u, dim=0).to(
+                        self.device, non_blocking=True
                     )
-                    rotated_loss = segmentation_loss(rotated_logits, rotated["part_mask"])["total"]
-                    aligned_probability = torch.rot90(torch.sigmoid(rotated_logits), -turns, (-2, -1))
-                    consistency = F.mse_loss(aligned_probability, torch.sigmoid(logits))
-                    total_loss = 0.5 * (total_loss + rotated_loss) + self.config.rotation_loss_weight * consistency
+                    rotated["v"] = torch.stack(rotated_v, dim=0).to(
+                        self.device, non_blocking=True
+                    )
+                    rotated["d"] = torch.stack(rotated_d, dim=0).to(
+                        self.device, non_blocking=True
+                    )
+
+                    rotated_logits, _ = model(
+                        rotated["image"],
+                        text,
+                        rotated["object_mask"],
+                        rotated["u"],
+                        rotated["v"],
+                        rotated["d"],
+                    )
+                    rotated_loss = segmentation_loss(
+                        rotated_logits, rotated["part_mask"]
+                    )["total"]
+                    aligned_probability = torch.rot90(
+                        torch.sigmoid(rotated_logits), -turns, (-2, -1)
+                    )
+                    consistency = F.mse_loss(
+                        aligned_probability, torch.sigmoid(logits)
+                    )
+                    total_loss = (
+                        0.5 * (total_loss + rotated_loss)
+                        + self.config.rotation_loss_weight * consistency
+                    )
             if training:
                 assert scaler is not None
                 scaler.scale(total_loss / self.config.gradient_accumulation_steps).backward()
@@ -610,6 +703,12 @@ class TrainingRuntime:
             optimizer.load_state_dict(checkpoint["optimizer_state"])
             scheduler.load_state_dict(checkpoint["scheduler_state"])
             scaler.load_state_dict(checkpoint["scaler_state"])
+            if "rng_state" in checkpoint:
+                set_rng_state(checkpoint["rng_state"])
+            if "train_generator_state" in checkpoint:
+                self.train_generator.set_state(
+                    checkpoint["train_generator_state"].cpu()
+                )
             history = json.loads((self.result_dir / "history.json").read_text())
             start_epoch = int(checkpoint["epoch"]) + 1
             best_value = float(checkpoint["best_validation_iou"])
@@ -654,6 +753,8 @@ class TrainingRuntime:
                 "optimizer_state": optimizer.state_dict(),
                 "scheduler_state": scheduler.state_dict(),
                 "scaler_state": scaler.state_dict(),
+                "rng_state": get_rng_state(),
+                "train_generator_state": self.train_generator.get_state(),
                 "validation_metrics": validation_metrics,
                 "config": config,
             }
