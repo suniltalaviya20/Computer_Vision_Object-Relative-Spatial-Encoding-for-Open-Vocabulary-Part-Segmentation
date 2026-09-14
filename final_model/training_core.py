@@ -145,10 +145,14 @@ def get_rng_state() -> dict[str, Any]:
 def set_rng_state(state: dict[str, Any]) -> None:
     random.setstate(state["python"])
     np.random.set_state(state["numpy"])
-    torch.set_rng_state(state["torch"])
+
+    # torch.set_rng_state expects a CPU ByteTensor.
+    torch.set_rng_state(state["torch"].cpu())
 
     if torch.cuda.is_available() and "cuda" in state:
-        torch.cuda.set_rng_state_all(state["cuda"])
+        torch.cuda.set_rng_state_all(
+            [cuda_state.cpu() for cuda_state in state["cuda"]]
+        )
 
 
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1)
@@ -702,7 +706,9 @@ class TrainingRuntime:
             if "rng_state" in checkpoint:
                 set_rng_state(checkpoint["rng_state"])
             if "train_generator_state" in checkpoint:
-                self.train_generator.set_state(checkpoint["train_generator_state"])
+                self.train_generator.set_state(
+                    checkpoint["train_generator_state"].cpu()
+                )
             history = json.loads((self.result_dir / "history.json").read_text())
             start_epoch = int(checkpoint["epoch"]) + 1
             best_value = float(checkpoint["best_validation_iou"])
