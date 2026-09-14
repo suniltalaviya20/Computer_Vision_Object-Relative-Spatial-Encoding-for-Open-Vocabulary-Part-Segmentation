@@ -1,0 +1,15 @@
+{
+  "method": "rotation_consistent",
+  "protocol": "parent-mask-conditioned / Oracle-Obj-like",
+  "strict_leaderboard_equivalent": false,
+  "seen_miou": 0.4959356738464914,
+  "unseen_miou": 0.33172454844998345,
+  "h_iou": 0.3975400364427211,
+  "valid_seen_classes": 73,
+  "valid_unseen_classes": 41,
+  "evaluated_oracle_object_regions": 884,
+  "decoder": "argmax across applicable part-query probabilities; no test threshold tuning",
+  "checkpoint": "training_results/best_model.pt",
+  "checkpoint_sha256": "8b051425034eb333a3f834518a29cb427418d92982ae9ec2a0f0cede249e79fb",
+  "parent_mask_repair_activations_during_pipeline_audit": 76
+}

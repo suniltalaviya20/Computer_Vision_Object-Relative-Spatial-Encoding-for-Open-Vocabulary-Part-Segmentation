@@ -1,6 +1,6 @@
 # Full-training submission notebooks
 
-This folder contains the seven reproducible final-training notebooks. The five
+This folder contains eight reproducible experiment and evaluation notebooks. The five
 experiment notebooks optimize models from scratch and therefore require an
 allocated CUDA GPU.
 
@@ -21,6 +21,7 @@ local-UI checkpoint.
 5. `04_rotation_consistency.ipynb`
 6. `05_geometry_branch_dropout.ipynb`
 7. `06_final_comparison_and_model_selection.ipynb`
+8. `07_pascal_part116_benchmark_comparison.ipynb`
 
 The five models use matched data, frozen DINOv2/OpenCLIP backbones, seed 42,
 image size 224, and validation-only checkpoint selection. Each model uses a
@@ -60,6 +61,12 @@ training_results/best_model.pt
 
 `model_registry.json` records all experiment checkpoints so the UI can load and
 compare them without retraining.
+
+After notebook 06 has selected the final checkpoint, notebook 07 separately
+reports the controlled internal ablation and an Oracle-Obj-like Pascal-Part-116
+semantic-class comparison. It audits the training input protocol, reproduces the
+official 74-seen/42-unseen class partition, and keeps literature references
+separate from non-equivalent internal query-level metrics.
 
 The UI can load the selected checkpoint and predict at the original image size:
 

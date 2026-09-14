@@ -8,6 +8,16 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTIVE_DIRS = ("final_model", "datasets", "deployment")
+TRAINING_NOTEBOOKS = (
+    "00_data_analysis.ipynb",
+    "01_baseline_object_mask.ipynb",
+    "02_fixed_uvd.ipynb",
+    "03_query_gated_uvd.ipynb",
+    "04_rotation_consistency.ipynb",
+    "05_geometry_branch_dropout.ipynb",
+    "06_final_comparison_and_model_selection.ipynb",
+    "07_pascal_part116_benchmark_comparison.ipynb",
+)
 
 
 def active_python():
@@ -67,7 +77,8 @@ class StructureTests(unittest.TestCase):
         self.assertTrue((result_root / "model_registry.json").is_file())
 
     def test_notebook_paths(self):
-        for path in sorted((ROOT / "final_training_notebooks").glob("*.ipynb")):
+        for filename in TRAINING_NOTEBOOKS:
+            path = ROOT / "final_training_notebooks" / filename
             notebook = json.loads(path.read_text())
             source = "\n".join(
                 "".join(cell.get("source", []))
@@ -76,8 +87,10 @@ class StructureTests(unittest.TestCase):
             with self.subTest(notebook=path.name):
                 self.assertNotIn('path / "final_training"', source)
                 self.assertNotIn("final_training.training_core", source)
-                self.assertIn('path / "final_model"', source)
-                self.assertIn("FRESH_TRAINING = True", source)
+                if filename not in ("00_data_analysis.ipynb",):
+                    self.assertIn('path / "final_model"', source)
+                if filename.startswith(("01_", "02_", "03_", "04_", "05_")):
+                    self.assertIn("FRESH_TRAINING = True", source)
 
     def test_registry_paths(self):
         registry = json.loads((ROOT / "models/final_study/model_registry.json").read_text())

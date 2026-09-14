@@ -2,8 +2,8 @@
   "experiment": "query_gated_uvd",
   "status": "trained",
   "stop_reason": "early_stopping_validation_iou_plateau",
-  "epochs_completed": 16,
-  "selected_epoch": 12,
-  "best_validation_iou": 0.2837432776422048,
+  "epochs_completed": 17,
+  "selected_epoch": 17,
+  "best_validation_iou": 0.28860338527745416,
   "checkpoint": "training_results/query_gated_uvd/best.pt"
 }

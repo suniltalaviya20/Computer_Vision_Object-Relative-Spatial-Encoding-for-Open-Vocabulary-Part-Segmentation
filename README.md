@@ -201,6 +201,7 @@ Open Jupyter from the repository root and run these notebooks manually in order:
 04_rotation_consistency.ipynb
 05_geometry_branch_dropout.ipynb
 06_final_comparison_and_model_selection.ipynb
+07_pascal_part116_benchmark_comparison.ipynb
 ```
 
 Each experiment notebook has a visible `FRESH_TRAINING` setting. Keep it `True`
