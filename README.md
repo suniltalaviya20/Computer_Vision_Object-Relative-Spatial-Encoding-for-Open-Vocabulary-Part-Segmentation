@@ -95,40 +95,17 @@ data/splits/
 The raw and processed datasets are intentionally excluded from version control;
 the deterministic split files under `data/splits/` are tracked.
 
-## Run the static website
+## Run the web demo
 
-The website displays predictions exported in advance; selecting an example does
-not retrain or run a model. The user-upload panel can preview files in this
-mode, but its Run button needs the inference server described below.
-
-```bash
-python3 -m http.server 8000 --bind 127.0.0.1 --directory web
-```
-
-Open <http://127.0.0.1:8000/> and stop the server with `Ctrl+C`.
-
-## Run the website with user-image inference
-
-### Local quick start
-
-Open a terminal in the project root. Create the virtual environment only if it
-does not already exist, then install the dependencies:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-On later runs, activate the existing environment and start the application:
+After completing the project setup above, start the application from the
+repository root:
 
 ```bash
 source .venv/bin/activate
 uvicorn deployment.inference_server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Keep that terminal open. Wait until it prints:
+Keep the terminal open and wait until it prints:
 
 ```text
 Uvicorn running on http://127.0.0.1:8000
@@ -138,8 +115,7 @@ Then open <http://127.0.0.1:8000/> in the browser. Use `http`, not `https`.
 If an older page is cached, press `Ctrl+Shift+R`. Stop the application by
 pressing `Ctrl+C` in the terminal.
 
-Do not start the separate `python -m http.server` command at the same time on
-port 8000. The Uvicorn application serves both the webpage and inference API.
+The Uvicorn application serves both the webpage and inference API.
 
 The upload flow supports:
 
