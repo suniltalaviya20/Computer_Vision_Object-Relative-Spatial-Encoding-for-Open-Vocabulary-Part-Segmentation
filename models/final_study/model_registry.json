@@ -6,28 +6,28 @@
   "models": {
     "baseline_object_mask": {
       "checkpoint": "models/final_study/baseline_object_mask.pt",
-      "validation_iou": 0.2813801040376628,
-      "selected_epoch": 14
+      "validation_iou": 0.2880425611440546,
+      "selected_epoch": 20
     },
     "fixed_uvd": {
       "checkpoint": "models/final_study/fixed_uvd.pt",
-      "validation_iou": 0.2855239875349412,
-      "selected_epoch": 12
+      "validation_iou": 0.291171250597623,
+      "selected_epoch": 15
     },
     "query_gated_uvd": {
       "checkpoint": "models/final_study/query_gated_uvd.pt",
-      "validation_iou": 0.2837432776422048,
-      "selected_epoch": 12
+      "validation_iou": 0.2908936964213334,
+      "selected_epoch": 15
     },
     "rotation_consistent": {
       "checkpoint": "models/final_study/rotation_consistent.pt",
-      "validation_iou": 0.2980733523878722,
-      "selected_epoch": 21
+      "validation_iou": 0.2937194884884319,
+      "selected_epoch": 14
     },
     "geometry_dropout": {
       "checkpoint": "models/final_study/geometry_dropout.pt",
-      "validation_iou": 0.2870662058522762,
-      "selected_epoch": 15
+      "validation_iou": 0.2877624893346007,
+      "selected_epoch": 17
     }
   }
 }

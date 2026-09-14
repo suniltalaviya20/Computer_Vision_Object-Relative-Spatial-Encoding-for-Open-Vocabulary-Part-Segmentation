@@ -1,6 +1,6 @@
 # Full-training submission notebooks
 
-This folder contains eight reproducible experiment and evaluation notebooks. The five
+This folder contains eight reproducible study notebooks plus one exploratory extension. The five
 experiment notebooks optimize models from scratch and therefore require an
 allocated CUDA GPU.
 
@@ -22,6 +22,7 @@ local-UI checkpoint.
 6. `05_geometry_branch_dropout.ipynb`
 7. `06_final_comparison_and_model_selection.ipynb`
 8. `07_pascal_part116_benchmark_comparison.ipynb`
+9. `08_fourier_uvd_experiment.ipynb` (exploratory; excluded from final selection by default)
 
 The five models use matched data, frozen DINOv2/OpenCLIP backbones, seed 42,
 image size 224, and validation-only checkpoint selection. Each model uses a
