@@ -1,5 +1,7 @@
 # Object-Relative Open-Vocabulary Part Segmentation
 
+**Hosted demo:** [partseg-demo.pages.dev](https://partseg-demo.pages.dev/)
+
 This project predicts an object-part mask from:
 
 - an RGB image;
