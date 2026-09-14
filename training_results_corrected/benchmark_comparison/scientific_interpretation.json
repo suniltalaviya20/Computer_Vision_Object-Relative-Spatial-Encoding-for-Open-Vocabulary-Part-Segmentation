@@ -1,0 +1,12 @@
+{
+  "is_strict_literature_comparison": false,
+  "appropriate_claim": "approximate parent-mask-conditioned / Oracle-Obj-like comparison",
+  "ours_h_iou_percent": 37.829697019644584,
+  "best_oracle_obj_reference_method": "PCA-Seg",
+  "best_oracle_obj_reference_h_iou_percent": 52.9,
+  "difference_from_best_reference_points": -15.070302980355414,
+  "internally_selected_model": "rotation_consistent",
+  "internal_validation_winner": "rotation_consistent",
+  "repair_audit_passed": false,
+  "conclusion_rule": "Describe competitiveness only against reference values under the stated approximate protocol; never claim a strict Pred-All or Oracle-Obj leaderboard result."
+}

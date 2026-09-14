@@ -1,5 +1,7 @@
 # Object-Relative Open-Vocabulary Part Segmentation
 
+**Hosted demo:** [partseg-demo.pages.dev](https://partseg-demo.pages.dev/)
+
 This project predicts an object-part mask from:
 
 - an RGB image;
@@ -13,23 +15,24 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 
 ```text
 .
-├── data/                        # Pascal-Part-116 (not committed)
+├── data/                        # tracked splits; downloaded/prepared data are ignored
 ├── datasets/                    # Pascal-Part loader and label metadata
 ├── deployment/                  # local FastAPI server
 ├── final_model/                 # final architecture, training, and inference
 ├── models/final_study/          # active deployment checkpoints and registry
 ├── final_training_notebooks/    # reproducible training notebooks
-├── training_results/            # metrics, plots and training artifacts
-├── scripts/                     # notebook training workflow
+├── training_results_corrected/  # corrected metrics, plots and training artifacts
+├── scripts/                     # dataset preparation and static-web export
 ├── tests/                       # layout and API regression checks
 ├── requirements.txt             # project dependencies
 ├── README.md
 └── web/                         # static browser demo
 ```
 
-The notebooks and training results are retained as the complete training record.
-The main runtime copies only the smaller `ui_model.pt` artifacts into
-`models/final_study/`; `best.pt`, `last.pt`, logs, and reports are not duplicated.
+The source notebooks and generated training results form the training record.
+The deployment directory contains only compact inference-checkpoint copies;
+training `best.pt`/`last.pt` checkpoints, logs, and reports remain under
+`training_results_corrected/` and are not duplicated.
 
 ## Setup
 
@@ -40,21 +43,38 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The first training or inference run downloads DINOv2 and OpenCLIP from their
-official online sources. Later runs reuse the standard local caches.
+Use Python 3.10 or newer. Training requires a CUDA-capable GPU; direct inference
+and the local API can also run on CPU, although they will be slower. The first
+training or part-inference run requires internet access to download DINOv2 and
+OpenCLIP. Automatic parent-object detection separately downloads Torchvision's
+COCO Mask R-CNN weights. Later runs reuse the standard local caches.
 
 ## Final trained models
 
-| Model | Selected epoch | Validation IoU |
-|---|---:|---:|
-| Object-mask baseline | 14 | 0.2814 |
-| Fixed UVD | 12 | 0.2855 |
-| Query-gated UVD | 12 | 0.2837 |
-| Rotation-consistent UVD | 21 | **0.2981** |
-| Geometry-dropout UVD | 15 | 0.2871 |
+| Model | Selected epoch | Validation IoU | Seen test IoU | Unseen test IoU |
+|---|---:|---:|---:|---:|
+| Object-mask baseline | 20 | 0.2880 | 0.2956 | 0.2243 |
+| Fixed UVD | 15 | 0.2912 | 0.3015 | 0.2493 |
+| Query-gated UVD | 15 | 0.2909 | **0.3028** | 0.2456 |
+| Rotation-consistent UVD | 14 | **0.2937** | 0.3028 | **0.2712** |
+| Geometry-dropout UVD | 17 | 0.2878 | 0.2972 | 0.2415 |
 
 Rotation-consistent UVD is the selected model. Selection used validation IoU;
 test metrics were not used for checkpoint selection.
+
+### Pascal-Part-116 benchmark context
+
+Notebook 07 also evaluates the selected model with multiclass decoding inside
+ground-truth parent-object regions. It reports 47.78% seen mIoU, 31.31% unseen
+mIoU, and 37.83% harmonic IoU over the classes with valid test support.
+
+This is an approximate parent-mask-conditioned, Oracle-Obj-like comparison—not
+a strict Oracle-Obj or Pred-All leaderboard result. The model was trained as
+independent binary part queries at 224 px, while the official evaluator predicts
+a multiclass part map per oracle object region. The pipeline audit also recorded
+76 parent-mask repair activations, so the benchmark should be interpreted with
+the protocol qualifications saved in
+`training_results_corrected/benchmark_comparison/`.
 
 ## Dataset
 
@@ -74,40 +94,20 @@ data/processed/
 data/splits/
 ```
 
-## Run the static website
+The raw and processed datasets are intentionally excluded from version control;
+the deterministic split files under `data/splits/` are tracked.
 
-The website displays predictions exported in advance; selecting an example does
-not retrain or run a model. The user-upload panel can preview files in this
-mode, but its Run button needs the inference server described below.
+## Run the web demo
 
-```bash
-python3 -m http.server 8000 --bind 127.0.0.1 --directory web
-```
-
-Open <http://127.0.0.1:8000/> and stop the server with `Ctrl+C`.
-
-## Run the website with user-image inference
-
-### Local quick start
-
-Open a terminal in the project root. Create the virtual environment only if it
-does not already exist, then install the dependencies:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-On later runs, activate the existing environment and start the application:
+After completing the project setup above, start the application from the
+repository root:
 
 ```bash
 source .venv/bin/activate
 uvicorn deployment.inference_server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Keep that terminal open. Wait until it prints:
+Keep the terminal open and wait until it prints:
 
 ```text
 Uvicorn running on http://127.0.0.1:8000
@@ -117,8 +117,7 @@ Then open <http://127.0.0.1:8000/> in the browser. Use `http`, not `https`.
 If an older page is cached, press `Ctrl+Shift+R`. Stop the application by
 pressing `Ctrl+C` in the terminal.
 
-Do not start the separate `python -m http.server` command at the same time on
-port 8000. The Uvicorn application serves both the webpage and inference API.
+The Uvicorn application serves both the webpage and inference API.
 
 The upload flow supports:
 
@@ -167,6 +166,13 @@ web/data/catalogue.json
 web/assets/examples/
 ```
 
+Regenerate it from the deployed checkpoints after running notebook 06:
+
+```bash
+source .venv/bin/activate
+python scripts/export_web_assets.py --publish
+```
+
 ## Direct inference
 
 For a new image, supply a `uint8` RGB tensor shaped `[3, H, W]`, a binary
@@ -188,8 +194,8 @@ V, and D are computed relative to that mask.
 ## Reproducing training
 
 The source notebooks are in `final_training_notebooks/`. Existing metrics,
-plots, executed notebooks, inference files, and resume checkpoints are
-together in `training_results/`.
+plots, compact inference checkpoints, completion markers, and training-resume
+checkpoints are stored under `training_results_corrected/`.
 
 Open Jupyter from the repository root and run these notebooks manually in order:
 
@@ -204,13 +210,19 @@ Open Jupyter from the repository root and run these notebooks manually in order:
 07_pascal_part116_benchmark_comparison.ipynb
 ```
 
-Each experiment notebook has a visible `FRESH_TRAINING` setting. Keep it `True`
-for a new run. Change it to `False` before restarting an interrupted notebook so
-training resumes from its last saved epoch.
+Experiment notebooks 01–05 default to `TRAIN_MODEL = False`, so running them
+loads the saved tables and plots without training. Set `TRAIN_MODEL = True` to
+train; keep `FRESH_TRAINING = True` for a new run, or set it to `False` to resume
+an interrupted run.
+
+Notebook 04 performs two model passes per training batch for its rotation-
+consistency objective. Its rotated UVD maps are transformed directly on the GPU
+for the sampled 90-degree rotation, avoiding CPU distance-transform
+recomputation without changing the experiment definition.
 
 The numerical results, plots, completion markers, and resume checkpoints are
-kept under `training_results/`. They are not required merely to view the static
-website or use an inference checkpoint.
+kept under `training_results_corrected/`. They are not required merely to view
+the static website or use an inference checkpoint.
 
 ## Regression checks
 
@@ -223,3 +235,12 @@ python -m unittest discover -s tests -v
 
 The API tests use controlled model outputs to check uploads, model selection,
 parent detection and static assets. Real predictions require the encoder weights.
+
+## References and attribution
+
+- [OV-PARTS protocol and Pascal-Part-116 resources](https://github.com/OpenRobotLab/OV_PARTS)
+- [DINOv2](https://github.com/facebookresearch/dinov2)
+- [OpenCLIP](https://github.com/mlfoundations/open_clip)
+
+The downloaded datasets and pretrained model weights remain subject to their
+respective upstream licenses and terms.

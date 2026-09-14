@@ -13,3 +13,6 @@ __pycache__/
 .pytest_cache/
 
 *.wrangler
+
+
+final_training_notebooks/08_fourier_uvd_experiment.ipynb

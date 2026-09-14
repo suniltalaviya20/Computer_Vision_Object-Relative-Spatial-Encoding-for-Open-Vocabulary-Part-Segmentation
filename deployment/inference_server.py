@@ -268,6 +268,7 @@ def health() -> dict:
     return {
         "status": "ok",
         "models": sorted(MODEL_SPECS),
+        "selected_model": MODEL_REGISTRY["selected_model"],
         "automatic_parent_prediction": True,
         "parent_categories": list(PARENT_CATEGORIES),
         "part_queries": list(PART_QUERIES),
@@ -343,10 +344,10 @@ async def predict_part(
     parent_mask: UploadFile = File(...),
     category: str = Form(...),
     part: str = Form(...),
-    model: str = Form("rotation_consistent"),
+    model: str | None = Form(None),
 ) -> dict:
     clean_category, clean_part, evaluation_mode = _validate_request(category, part)
-    model_id = _normalise_model_id(model)
+    model_id = _normalise_model_id(model or MODEL_REGISTRY["selected_model"])
     _checkpoint_path(model_id)
 
     image_bytes = await _read_upload(image, "RGB image")

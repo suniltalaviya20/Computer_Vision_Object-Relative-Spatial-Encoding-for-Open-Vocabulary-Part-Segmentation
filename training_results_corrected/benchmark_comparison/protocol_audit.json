@@ -1,0 +1,22 @@
+{
+  "existing_metric": "arithmetic mean of thresholded binary IoU over present part-query samples",
+  "existing_aggregation": "per query/sample; not per class and not global pixels",
+  "existing_is_semantic_miou": false,
+  "existing_threshold": 0.5,
+  "seen_definition": "part classes belonging to 11 trained parent-object categories",
+  "unseen_definition": "42 part classes belonging to bird, car, dog, motorbike, and sheep",
+  "official_class_partition_counts": {
+    "seen": 74,
+    "unseen": 42
+  },
+  "model_input": "ground-truth semantic parent-object mask",
+  "closest_protocol": "parent-mask-conditioned / Oracle-Obj-like",
+  "strict_oracle_obj_equivalence": false,
+  "why_not_strict": "The model is trained as independent binary present-part queries at 224 px; the official evaluator predicts a multiclass part map per oracle object region.",
+  "benchmark_decoding": "argmax across all applicable part-query probabilities inside each oracle parent mask",
+  "benchmark_threshold_tuning": "none",
+  "selection_rule": "maximum validation_seen IoU; no test metric used for selection",
+  "selected_model": "rotation_consistent",
+  "selected_checkpoint": "models/final_study/best_model.pt",
+  "selected_checkpoint_sha256": "fe361285eaa65b5844b705c3d8715f781607e7ceba549dff0cf63c3e65bd5ebd"
+}

@@ -163,6 +163,10 @@ const uploadState = {
 
   apiRetryTimer: null,
 
+  selectedModel: null,
+
+  modelSelectionChanged: false,
+
   automaticParentAvailable: false,
 
   parentCategories: [],
@@ -3295,8 +3299,9 @@ function populateUploadControls() {
 
   }
 
+  const preferredModelId = uploadState.selectedModel || "rotation_consistent";
   const preferredModel = state.models.find(
-    (model) => model.id === "final_rotation_consistent"
+    (model) => model.id.replace(/^final_/, "") === preferredModelId
   );
 
   if (preferredModel) {
@@ -3463,6 +3468,16 @@ async function checkInferenceAPI() {
 
     const health = await response.json();
     uploadState.apiOnline = health.status === "ok";
+    if (typeof health.selected_model === "string" && health.selected_model) {
+      uploadState.selectedModel = health.selected_model.replace(/^final_/, "");
+      const modelSelect = $("#upload-model-select");
+      const selectedModelAvailable = Array.from(modelSelect.options).some(
+        (option) => option.value === uploadState.selectedModel
+      );
+      if (!uploadState.modelSelectionChanged && selectedModelAvailable) {
+        modelSelect.value = uploadState.selectedModel;
+      }
+    }
     uploadState.automaticParentAvailable = Boolean(
       health.automatic_parent_prediction
     );
@@ -4212,6 +4227,7 @@ function setupUploadLab() {
   });
 
   $("#upload-model-select").addEventListener("change", () => {
+    uploadState.modelSelectionChanged = true;
     clearUploadResult();
     updateUploadReadiness();
   });

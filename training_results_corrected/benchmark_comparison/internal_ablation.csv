@@ -1,0 +1,6 @@
+method,selected_epoch,validation_query_mean_iou,test_seen_query_mean_iou,test_unseen_query_mean_iou,internal_h_iou,metric
+rotation_consistent,14,0.2937194884884319,0.302784999955777,0.2712108779311489,0.28612953098093885,mean per-present-query binary IoU @ 0.5
+fixed_uvd,15,0.291171250597623,0.301535117667274,0.2493112175373989,0.2729475808819839,mean per-present-query binary IoU @ 0.5
+query_gated_uvd,15,0.2908936964213334,0.3028356954106147,0.2455546853458743,0.2712036042480222,mean per-present-query binary IoU @ 0.5
+baseline_object_mask,20,0.2880425611440546,0.2956087412164733,0.2243190449779032,0.2550764636072325,mean per-present-query binary IoU @ 0.5
+geometry_dropout,17,0.2877624893346007,0.2972487969318657,0.2415191099013308,0.26650163806602656,mean per-present-query binary IoU @ 0.5

@@ -8,6 +8,7 @@ torch
 torchvision
 open_clip_torch
 scipy
+seaborn
 tqdm
 httpx
 fastapi

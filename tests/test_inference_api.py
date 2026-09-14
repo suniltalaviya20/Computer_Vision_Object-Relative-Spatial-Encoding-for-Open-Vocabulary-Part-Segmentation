@@ -47,6 +47,7 @@ class InferenceAPITests(unittest.IsolatedAsyncioTestCase):
         health = (await self.client.get("/api/health")).json()
         self.assertEqual(health["status"], "ok")
         self.assertEqual(set(health["models"]), set(server.MODEL_SPECS))
+        self.assertEqual(health["selected_model"], server.MODEL_REGISTRY["selected_model"])
         self.assertEqual(health["parent_categories"], list(server.PARENT_CATEGORIES))
 
     async def test_part_prediction_for_every_model(self):
@@ -67,6 +68,19 @@ class InferenceAPITests(unittest.IsolatedAsyncioTestCase):
                 for key in ("overlay_data_url", "mask_data_url"):
                     decoded = Image.open(io.BytesIO(base64.b64decode(body[key].split(",")[1])))
                     self.assertEqual(decoded.size, (8, 8))
+
+    async def test_part_prediction_defaults_to_registry_selection(self):
+        with patch.object(server, "_predictor") as loader:
+            loader.return_value.predict.return_value = torch.ones(8, 8)
+            response = await self.client.post(
+                "/api/predict",
+                files=self.files,
+                data={"category": "car", "part": "wheel"},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            selected = server.MODEL_REGISTRY["selected_model"]
+            self.assertEqual(response.json()["model"], selected)
+            loader.assert_called_once_with(selected)
 
     async def test_invalid_inputs_do_not_load_model(self):
         cases = [({"category": "car", "part": "wing"}, self.files, 422),
