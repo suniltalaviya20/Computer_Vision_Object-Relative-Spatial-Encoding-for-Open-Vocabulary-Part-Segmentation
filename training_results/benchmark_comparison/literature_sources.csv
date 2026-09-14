@@ -1,5 +1,0 @@
-source,url
-PartCATSeg,https://openaccess.thecvf.com/content/CVPR2025/papers/Choi_Fine-Grained_Image-Text_Correspondence_with_Cost_Aggregation_for_Open-Vocabulary_Part_Segmentation_CVPR_2025_paper.pdf
-PCA-Seg,https://arxiv.org/abs/2603.17520
-HOPS,https://openaccess.thecvf.com/content/CVPR2026/html/Li_HOPS_Hierarchical_Open-vocabulary_Part_Segmentation_with_Attention-Aware_Filtering_and_Affinity-Guided_CVPR_2026_paper.html
-OV-PARTS protocol,https://github.com/OpenRobotLab/OV_PARTS

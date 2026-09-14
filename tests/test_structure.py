@@ -30,12 +30,14 @@ def active_python():
 class StructureTests(unittest.TestCase):
     def test_layout(self):
         for directory in (*ACTIVE_DIRS, "web", "tests", "final_training_notebooks",
-                          "scripts", "data", "models", "training_results"):
+                          "scripts", "data", "models"):
             with self.subTest(directory=directory):
                 self.assertTrue((ROOT / directory).is_dir())
         for filename in ("__init__.py", "training_core.py", "inference.py"):
             self.assertTrue((ROOT / "final_model" / filename).is_file())
-        for filename in ("download_dataset.py", "prepare_dataset.py"):
+        for filename in (
+            "download_dataset.py", "prepare_dataset.py", "export_web_assets.py",
+        ):
             self.assertTrue((ROOT / "scripts" / filename).is_file())
         for old in ("src", "dashboard", "tools", "experiments", "deployment/Dockerfile",
                     "deployment/requirements.txt", "deployment/requirements-api.txt",
@@ -60,21 +62,28 @@ class StructureTests(unittest.TestCase):
                         self.assertTrue(module.with_suffix(".py").is_file() or (module / "__init__.py").is_file())
         self.assertIn("final_model.inference", migrated)
 
-    def test_training_artifacts_present(self):
-        result_root = ROOT / "training_results"
-        for experiment in (
+    def test_deployment_artifacts_present(self):
+        expected_models = {
             "baseline_object_mask", "fixed_uvd", "query_gated_uvd",
             "rotation_consistent", "geometry_dropout",
-        ):
-            for filename in (
-                "best.pt", "last.pt", "ui_model.pt", "summary.csv",
-                "history.csv", "training_curves.png",
-                "evaluation_comparison.png", "qualitative_unseen.png",
-            ):
-                with self.subTest(experiment=experiment, filename=filename):
-                    self.assertTrue((result_root / experiment / filename).is_file())
-        self.assertTrue((result_root / "best_model.pt").is_file())
-        self.assertTrue((result_root / "model_registry.json").is_file())
+        }
+        registry = json.loads(
+            (ROOT / "models/final_study/model_registry.json").read_text()
+        )
+        self.assertEqual(set(registry["models"]), expected_models)
+        self.assertIn(registry["selected_model"], expected_models)
+        self.assertEqual(
+            registry["selected_checkpoint"],
+            "models/final_study/best_model.pt",
+        )
+        for experiment in expected_models:
+            with self.subTest(experiment=experiment):
+                checkpoint = f"models/final_study/{experiment}.pt"
+                self.assertEqual(
+                    registry["models"][experiment]["checkpoint"], checkpoint
+                )
+                self.assertTrue((ROOT / checkpoint).is_file())
+        self.assertTrue((ROOT / registry["selected_checkpoint"]).is_file())
 
     def test_notebook_paths(self):
         for filename in TRAINING_NOTEBOOKS:
@@ -91,6 +100,23 @@ class StructureTests(unittest.TestCase):
                     self.assertIn('path / "final_model"', source)
                 if filename.startswith(("01_", "02_", "03_", "04_", "05_")):
                     self.assertIn("FRESH_TRAINING = True", source)
+                    self.assertIn("TRAIN_MODEL = False", source)
+                    self.assertIn("training_results_corrected", source)
+
+    def test_rotation_geometry_is_recomputed(self):
+        core_source = (ROOT / "final_model/training_core.py").read_text()
+        notebook = json.loads(
+            (ROOT / "final_training_notebooks/04_rotation_consistency.ipynb").read_text()
+        )
+        notebook_source = "\n".join(
+            "".join(cell.get("source", [])) for cell in notebook["cells"]
+        )
+        for source in (core_source, notebook_source):
+            self.assertIn('for mask in rotated["object_mask"]', source)
+            self.assertIn("relative_uvd(mask.detach().cpu())", source)
+            self.assertNotIn('torch.rot90(values["u"]', source)
+            self.assertNotIn('torch.rot90(values["v"]', source)
+            self.assertNotIn('torch.rot90(values["d"]', source)
 
     def test_registry_paths(self):
         registry = json.loads((ROOT / "models/final_study/model_registry.json").read_text())

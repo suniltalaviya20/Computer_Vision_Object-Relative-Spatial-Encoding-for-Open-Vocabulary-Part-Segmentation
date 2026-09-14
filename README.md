@@ -47,11 +47,11 @@ official online sources. Later runs reuse the standard local caches.
 
 | Model | Selected epoch | Validation IoU |
 |---|---:|---:|
-| Object-mask baseline | 14 | 0.2814 |
-| Fixed UVD | 12 | 0.2855 |
-| Query-gated UVD | 12 | 0.2837 |
-| Rotation-consistent UVD | 21 | **0.2981** |
-| Geometry-dropout UVD | 15 | 0.2871 |
+| Object-mask baseline | 20 | 0.2880 |
+| Fixed UVD | 15 | 0.2912 |
+| Query-gated UVD | 15 | 0.2909 |
+| Rotation-consistent UVD | 14 | **0.2937** |
+| Geometry-dropout UVD | 17 | 0.2878 |
 
 Rotation-consistent UVD is the selected model. Selection used validation IoU;
 test metrics were not used for checkpoint selection.
@@ -165,6 +165,13 @@ The prepared 111-example static demo is stored under:
 ```text
 web/data/catalogue.json
 web/assets/examples/
+```
+
+Regenerate it from the deployed checkpoints after running notebook 06:
+
+```bash
+source .venv/bin/activate
+python scripts/export_web_assets.py --publish
 ```
 
 ## Direct inference
