@@ -457,7 +457,7 @@ class TrainingRuntime:
             split: GeometryDataset(split, config.image_size)
             for split in ("train_seen", "validation_seen", "test_seen", "test_unseen")
         }
-        generator = torch.Generator().manual_seed(config.seed)
+        self.train_generator = torch.Generator().manual_seed(config.seed)
         common = {
             "num_workers": workers,
             "pin_memory": True,
@@ -470,7 +470,7 @@ class TrainingRuntime:
                 self.datasets["train_seen"],
                 batch_size=config.batch_size,
                 shuffle=True,
-                generator=generator,
+                generator=self.train_generator,
                 drop_last=False,
                 **common,
             ),
@@ -709,6 +709,8 @@ class TrainingRuntime:
             scaler.load_state_dict(checkpoint["scaler_state"])
             if "rng_state" in checkpoint:
                 set_rng_state(checkpoint["rng_state"])
+            if "train_generator_state" in checkpoint:
+                self.train_generator.set_state(checkpoint["train_generator_state"])
             history = json.loads((self.result_dir / "history.json").read_text())
             start_epoch = int(checkpoint["epoch"]) + 1
             best_value = float(checkpoint["best_validation_iou"])
@@ -754,6 +756,7 @@ class TrainingRuntime:
                 "scheduler_state": scheduler.state_dict(),
                 "scaler_state": scaler.state_dict(),
                 "rng_state": get_rng_state(),
+                "train_generator_state": self.train_generator.get_state(),
                 "validation_metrics": validation_metrics,
                 "config": config,
             }
