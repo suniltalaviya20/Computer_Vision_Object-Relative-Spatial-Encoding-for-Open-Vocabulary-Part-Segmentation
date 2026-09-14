@@ -19,7 +19,7 @@ ViT-B/32 QuickGELU text features, and one of five trained segmentation heads.
 ├── final_model/                 # final architecture, training, and inference
 ├── models/final_study/          # active deployment checkpoints and registry
 ├── final_training_notebooks/    # reproducible training notebooks
-├── training_results/            # metrics, plots and training artifacts
+├── training_results_corrected/  # corrected metrics, plots and training artifacts
 ├── scripts/                     # notebook training workflow
 ├── tests/                       # layout and API regression checks
 ├── requirements.txt             # project dependencies
@@ -189,7 +189,7 @@ V, and D are computed relative to that mask.
 
 The source notebooks are in `final_training_notebooks/`. Existing metrics,
 plots, executed notebooks, inference files, and resume checkpoints are
-together in `training_results/`.
+together in `training_results_corrected/`.
 
 Open Jupyter from the repository root and run these notebooks manually in order:
 
@@ -204,13 +204,14 @@ Open Jupyter from the repository root and run these notebooks manually in order:
 07_pascal_part116_benchmark_comparison.ipynb
 ```
 
-Each experiment notebook has a visible `FRESH_TRAINING` setting. Keep it `True`
-for a new run. Change it to `False` before restarting an interrupted notebook so
-training resumes from its last saved epoch.
+Experiment notebooks 01–05 default to `TRAIN_MODEL = False`, so running them
+loads the saved tables and plots without training. Set `TRAIN_MODEL = True` to
+train; keep `FRESH_TRAINING = True` for a new run, or set it to `False` to resume
+an interrupted run.
 
 The numerical results, plots, completion markers, and resume checkpoints are
-kept under `training_results/`. They are not required merely to view the static
-website or use an inference checkpoint.
+kept under `training_results_corrected/`. They are not required merely to view
+the static website or use an inference checkpoint.
 
 ## Regression checks
 
