@@ -388,6 +388,15 @@ class PartSegmenter(nn.Module):
             geometry = geometry * (~dropped)[:, None, None, None]
         low_logits = self.decoder(torch.cat([visual, text_map, mask_low, geometry], dim=1))
         logits = F.interpolate(low_logits, images.shape[-2:], mode="bilinear", align_corners=False)
+
+        # Constrain part predictions to the selected parent object.
+        # Outside the parent mask, logits are forced to a very negative value,
+        # making the predicted probability effectively zero.
+        logits = logits.masked_fill(
+            object_mask <= 0.5,
+            torch.finfo(logits.dtype).min,
+        )
+
         return logits, {
             "learned_gates": learned_gates,
             "effective_gates": effective_gates,
