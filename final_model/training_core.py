@@ -110,13 +110,13 @@ def run_id() -> str:
 
 
 def points_root() -> Path:
-    path = PROJECT_ROOT / "training_results"
+    path = PROJECT_ROOT / "training_results_corrected"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def results_root() -> Path:
-    path = PROJECT_ROOT / "training_results"
+    path = PROJECT_ROOT / "training_results_corrected"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -388,14 +388,6 @@ class PartSegmenter(nn.Module):
             geometry = geometry * (~dropped)[:, None, None, None]
         low_logits = self.decoder(torch.cat([visual, text_map, mask_low, geometry], dim=1))
         logits = F.interpolate(low_logits, images.shape[-2:], mode="bilinear", align_corners=False)
-
-        # Constrain part predictions to the selected parent object.
-        # Outside the parent mask, logits are forced to a very negative value,
-        # making the predicted probability effectively zero.
-        logits = logits.masked_fill(
-            object_mask <= 0.5,
-            torch.finfo(logits.dtype).min,
-        )
 
         return logits, {
             "learned_gates": learned_gates,
